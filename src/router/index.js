@@ -3,12 +3,13 @@ import { auth } from "../firebase";
 import HomeView from "../view/HomeView.vue";
 import LoginView from "../view/LoginView.vue";
 
+// router/index.js
 const routes = [
   { path: "/", component: LoginView, meta: { requiresNavbar: false } },
   {
     path: "/home",
     component: HomeView,
-    meta: { requiresAuth: true, requiresNavbar: true },
+    meta: { requiresAuth: true, requiresNavbar: true }, // Asegúrate de que está aquí
   },
 ];
 
