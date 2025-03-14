@@ -3,7 +3,7 @@
     <div class="container">
       <!-- Enlaces de navegación -->
       <router-link to="/home" class="nav-link">Inicio</router-link>
-      <router-link to="/mapa" class="nav-link">Mapa</router-link>
+      <router-link to="/mapa" class="nav-link">Graficas</router-link>
       <router-link to="/informacion" class="nav-link">Información</router-link>
       <router-link to="/SobreNosotros" class="nav-link">Sobre Nosotros</router-link>
     </div>
