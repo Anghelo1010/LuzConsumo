@@ -99,6 +99,10 @@ def recibir_datos():
 def obtener_datos():
     usuario_id = get_jwt_identity()
     series = SeriesMatematicas.query.filter_by(usuario_id=usuario_id).all()
+
+    if not series:
+        return jsonify([]), 200  # Devuelve lista vacía en vez de error
+
     resultado = [
         {
             "tipo_serie": s.tipo_serie,
