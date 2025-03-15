@@ -1,15 +1,20 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { auth } from "../firebase";
+import DashboardView from "../view/DashboardView.vue"; // Importamos la nueva vista
 import HomeView from "../view/HomeView.vue";
 import LoginView from "../view/LoginView.vue";
 
-// router/index.js
 const routes = [
   { path: "/", component: LoginView, meta: { requiresNavbar: false } },
   {
     path: "/home",
     component: HomeView,
-    meta: { requiresAuth: true, requiresNavbar: true }, // Asegúrate de que está aquí
+    meta: { requiresAuth: true, requiresNavbar: true },
+  },
+  {
+    path: "/dashboard", // Nueva ruta
+    component: DashboardView,
+    meta: { requiresAuth: true, requiresNavbar: true }, // Requiere autenticación y navbar
   },
 ];
 

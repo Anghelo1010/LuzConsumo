@@ -5,29 +5,41 @@
       <input type="email" v-model="email" placeholder="Correo electrónico" required />
       <input type="password" v-model="password" placeholder="Contraseña" required />
       <button type="submit">Ingresar</button>
+      <p v-if="mensaje">{{ mensaje }}</p>
     </form>
   </div>
 </template>
 
 <script>
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
+import api from "@/api"; // Importamos la API configurada con Axios
 
 export default {
   data() {
     return {
       email: "",
       password: "",
+      mensaje: "",
     };
   },
   methods: {
-    async login() {
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, this.email, this.password);
-        localStorage.setItem("user", userCredential.user.uid);
-        this.$router.push("/home");
+  async login() {
+    try {
+      const response = await api.post("/login", {
+        email: this.email,
+        clave: this.password, // Flask espera "clave"
+      });
+
+      console.log("Respuesta del servidor:", response.data); // Verifica la respuesta
+      const token = response.data.token; // Recibimos el token del backend
+
+      if (!token) {
+        this.mensaje = "Error: No se recibió el token.";
+        return;
+      }
+        this.mensaje = "Inicio de sesión exitoso 🚀";
+        this.$router.push("/home"); // Redirigimos a la página principal
       } catch (error) {
-        alert("Error al iniciar sesión: " + error.message);
+        this.mensaje = "Error al iniciar sesión. Verifica tus credenciales.";
       }
     },
   },

@@ -7,15 +7,22 @@ from flask_jwt_extended import (
     get_jwt_identity,
 )
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS  # Importa CORS correctamente
 import datetime
 
+# Inicializa Flask solo UNA vez
 app = Flask(__name__)
+
+# Configuración de la base de datos y JWT
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:admin@localhost:5432/iot"
 app.config["JWT_SECRET_KEY"] = "supersecretkey"
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Habilitar CORS correctamente después de inicializar Flask
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 
 
 # Modelo de Usuario
@@ -47,10 +54,8 @@ class SeriesMatematicas(db.Model):
 def login():
     data = request.json
     usuario = Usuario.query.filter_by(email=data["email"]).first()
-    if (
-        usuario and usuario.clave == data["clave"]
-    ):  # Debería usarse hashing en producción
-        token = create_access_token(identity=usuario.id)
+    if usuario and usuario.clave == data["clave"]:  # Debe usarse hashing en producción
+        token = create_access_token(identity=str(usuario.id))
         return jsonify({"token": token})
     return jsonify({"error": "Credenciales inválidas"}), 401
 
@@ -99,7 +104,7 @@ def obtener_datos():
             "tipo_serie": s.tipo_serie,
             "resultado": float(s.resultado),
             "error": float(s.error),
-            "fecha": s.fecha,
+            "fecha": s.fecha.strftime("%Y-%m-%d %H:%M:%S"),
         }
         for s in series
     ]

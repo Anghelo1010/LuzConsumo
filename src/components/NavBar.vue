@@ -3,7 +3,7 @@
     <div class="container">
       <!-- Enlaces de navegación -->
       <router-link to="/home" class="nav-link">Inicio</router-link>
-      <router-link to="/mapa" class="nav-link">Graficas</router-link>
+      <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
       <router-link to="/informacion" class="nav-link">Información</router-link>
       <router-link to="/SobreNosotros" class="nav-link">Sobre Nosotros</router-link>
     </div>
@@ -48,7 +48,7 @@ onMounted(() => {
 }
 
 .nav-link:hover {
-  background-color: #34495e; /* Fondo gris oscuro al pasar el cursor */
+  background-color: #34495e; /* Fondo gris oscuro al para el cursor */
 }
 
 .nav-link.router-link-exact-active {
