@@ -3,12 +3,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import (
     JWTManager,
     create_access_token,
+    create_refresh_token,
     jwt_required,
     get_jwt_identity,
 )
 from flask_socketio import SocketIO, emit
-from flask_cors import CORS  # Importa CORS correctamente
+from flask_cors import CORS
 import datetime
+from datetime import timedelta
 
 # Inicializa Flask solo UNA vez
 app = Flask(__name__)
@@ -16,6 +18,11 @@ app = Flask(__name__)
 # Configuración de la base de datos y JWT
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://postgres:admin@localhost:5432/iot"
 app.config["JWT_SECRET_KEY"] = "supersecretkey"
+
+# ⏳ Token de acceso dura 7 días
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
+# 🔄 Refresh token dura 30 días
+app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
@@ -49,18 +56,31 @@ class SeriesMatematicas(db.Model):
     fecha = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
-# Endpoint para autenticación y generación de token
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
     usuario = Usuario.query.filter_by(email=data["email"]).first()
-    if usuario and usuario.clave == data["clave"]:  # Debe usarse hashing en producción
-        token = create_access_token(identity=str(usuario.id))
-        return jsonify({"token": token})
+    if usuario and usuario.clave == data["clave"]:  # ¡Usa hashing en producción!
+        access_token = create_access_token(
+            identity=str(usuario.id), expires_delta=datetime.timedelta(days=7)
+        )
+        return jsonify(
+            {"token": access_token}
+        )  # 👈 Asegúrate de que el frontend busca "token"
+
     return jsonify({"error": "Credenciales inválidas"}), 401
 
 
-# Endpoint para recibir datos de Pydroid 3
+# 🔄 Endpoint para renovar el token de acceso usando el refresh token
+@app.route("/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    usuario_id = get_jwt_identity()
+    nuevo_token = create_access_token(identity=usuario_id)
+    return jsonify({"access_token": nuevo_token})
+
+
+# ✅ Endpoint para recibir datos de Pydroid 3
 @app.route("/enviar_datos", methods=["POST"])
 @jwt_required()
 def recibir_datos():
@@ -93,7 +113,7 @@ def recibir_datos():
     return jsonify({"mensaje": "Datos almacenados correctamente"})
 
 
-# Endpoint para obtener datos históricos del usuario autenticado
+# ✅ Endpoint para obtener datos históricos del usuario autenticado
 @app.route("/obtener_datos", methods=["GET"])
 @jwt_required()
 def obtener_datos():
@@ -115,7 +135,7 @@ def obtener_datos():
     return jsonify(resultado)
 
 
-# Nuevo endpoint para obtener TODAS las series matemáticas
+# ✅ Nuevo endpoint para obtener TODAS las series matemáticas
 @app.route("/series", methods=["GET"])
 @jwt_required()
 def obtener_todas_las_series():
