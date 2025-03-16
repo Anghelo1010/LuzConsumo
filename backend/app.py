@@ -99,7 +99,26 @@ def recibir_datos():
     )
     db.session.add(nueva_serie)
     db.session.commit()
+# Generar resultado aleatorio con una pequeña variación
+    variacion = random.uniform(-0.05, 0.05) * float(data["resultado"])
+    resultado_aleatorio = float(data["resultado"]) + variacion
+    error_aleatorio = abs(resultado_aleatorio - float(data["resultado"]))
 
+    nueva_serie = SeriesMatematicas(
+        usuario_id=usuario_id,
+        tipo_serie=data["tipo_serie"],
+        parametros=data["parametros"],
+        resultado=data["resultado"],
+        error=data["error"],
+        iteraciones=data["iteraciones"],
+        precision=data["precision"],
+        tiempo_calculo=data["tiempo_calculo"],
+        dispositivo=data.get("dispositivo", "Desconocido"),
+        resultado_aleatorio=resultado_aleatorio,
+        error_aleatorio=error_aleatorio,
+    )
+    db.session.add(nueva_serie)
+    db.session.commit()
     # Enviar datos en tiempo real con WebSocket
     socketio.emit(
         "nueva_serie",
