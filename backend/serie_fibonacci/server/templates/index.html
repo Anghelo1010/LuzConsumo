@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Serie de Fibonacci</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gráfico en Tiempo Real: Fibonacci y Coseno</h1>
+    <div id="grafico" style="width:100%;height:600px;"></div>
+    <h2>Datos de la Serie</h2>
+    <table id="datosTabla">
+        <thead>
+            <tr>
+                <th>Tipo de Serie</th>
+                <th>Resultado</th>
+                <th>Error</th>
+                <th>Fecha</th>
+            </tr>
+        </thead>
+        <tbody id="tablaBody">
+            <!-- Los datos se insertarán aquí dinámicamente -->
+        </tbody>
+    </table>
+
+    <script>
+        function actualizarDatos() {
+            $.getJSON('/datos_grafico', function(data) {
+                // Actualizar gráfica
+                var grafico = document.getElementById('grafico');
+                Plotly.react(grafico, JSON.parse(data.grafico).data, JSON.parse(data.grafico).layout);
+
+                // Actualizar tabla
+                var tbody = $('#tablaBody');
+                tbody.empty(); // Limpiar la tabla existente
+                data.tabla.forEach(function(dato) {
+                    var row = '<tr>' +
+                        '<td>' + dato.tipo_serie + '</td>' +
+                        '<td>' + dato.resultado + '</td>' +
+                        '<td>' + dato.error + '</td>' +
+                        '<td>' + dato.fecha + '</td>' +
+                        '</tr>';
+                    tbody.append(row);
+                });
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error("Error al cargar datos: " + textStatus, errorThrown);
+            });
+        }
+
+        // Actualizar cada 2 segundos
+        setInterval(actualizarDatos, 2000);
+        actualizarDatos(); // Llamada inicial
+    </script>
+</body>
+</html>
