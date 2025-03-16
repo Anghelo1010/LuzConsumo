@@ -11,8 +11,7 @@ from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import datetime
 from datetime import timedelta
-import random
-import math
+import numpy as np
 
 # Inicializa Flask solo UNA vez
 app = Flask(__name__)
@@ -33,7 +32,6 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Habilitar CORS correctamente después de inicializar Flask
 CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 
-
 # Modelo de Usuario
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -41,7 +39,6 @@ class Usuario(db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     clave = db.Column(db.String(255), nullable=False)
     fecha_registro = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-
 
 # Modelo de Series Matemáticas
 class SeriesMatematicas(db.Model):
@@ -56,13 +53,18 @@ class SeriesMatematicas(db.Model):
     tiempo_calculo = db.Column(db.Float, nullable=False)
     dispositivo = db.Column(db.String(100))
     fecha = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    resultado_seno = db.Column(db.Numeric, nullable=False)
-    resultado_coseno = db.Column(db.Numeric, nullable=False)
-    resultado_tangente = db.Column(db.Numeric, nullable=False)
-    error_seno = db.Column(db.Numeric, nullable=False)
-    error_coseno = db.Column(db.Numeric, nullable=False)
-    error_tangente = db.Column(db.Numeric, nullable=False)
 
+# Función para calcular la serie de Fourier (simplificada)
+def calcular_fourier(n, frecuencias, amplitudes):
+    t = np.linspace(0, 2 * np.pi, n)
+    resultado = np.zeros(n)
+
+    for f, a in zip(frecuencias, amplitudes):
+        resultado += a * np.sin(f * t)
+
+    # Calculamos el error como la diferencia entre el máximo y el mínimo
+    error = np.max(resultado) - np.min(resultado)
+    return resultado, error
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -78,7 +80,6 @@ def login():
 
     return jsonify({"error": "Credenciales inválidas"}), 401
 
-
 # 🔄 Endpoint para renovar el token de acceso usando el refresh token
 @app.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
@@ -87,23 +88,12 @@ def refresh():
     nuevo_token = create_access_token(identity=usuario_id)
     return jsonify({"access_token": nuevo_token})
 
-
-# ✅ Endpoint para recibir datos de Pydroid 3
+# ✅ Endpoint para recibir datos de Pydroid 3 (sería para cualquier otra serie también)
 @app.route("/enviar_datos", methods=["POST"])
 @jwt_required()
 def recibir_datos():
     usuario_id = get_jwt_identity()
     data = request.json
-    
-    valor = float(data["resultado"])
-    resultado_seno = math.sin(valor)
-    resultado_coseno = math.cos(valor)
-    resultado_tangente = math.tan(valor)
-    
-    error_seno = abs(resultado_seno - math.sin(valor))
-    error_coseno = abs(resultado_coseno - math.cos(valor))
-    error_tangente = abs(resultado_tangente - math.tan(valor))
-
     nueva_serie = SeriesMatematicas(
         usuario_id=usuario_id,
         tipo_serie=data["tipo_serie"],
@@ -114,12 +104,6 @@ def recibir_datos():
         precision=data["precision"],
         tiempo_calculo=data["tiempo_calculo"],
         dispositivo=data.get("dispositivo", "Desconocido"),
-        resultado_seno=resultado_seno,
-        resultado_coseno=resultado_coseno,
-        resultado_tangente=resultado_tangente,
-        error_seno=error_seno,
-        error_coseno=error_coseno,
-        error_tangente=error_tangente,
     )
     db.session.add(nueva_serie)
     db.session.commit()
@@ -131,22 +115,104 @@ def recibir_datos():
             "tipo_serie": data["tipo_serie"],
             "resultado": data["resultado"],
             "error": data["error"],
-            "resultado_seno": resultado_seno,
-            "resultado_coseno": resultado_coseno,
-            "resultado_tangente": resultado_tangente,
-            "error_seno": error_seno,
-            "error_coseno": error_coseno,
-            "error_tangente": error_tangente,
         },
     )
 
     return jsonify({"mensaje": "Datos almacenados correctamente"})
 
+# ✅ Nuevo endpoint para recibir datos de la serie de Fourier
+@app.route("/enviar_datos_fourier", methods=["POST"])
+@jwt_required()
+def recibir_datos_fourier():
+    usuario_id = get_jwt_identity()
+    data = request.json
+    
+    # Obtenemos los parámetros de la serie de Fourier
+    frecuencias = data["frecuencias"]  # [f1, f2, ...]
+    amplitudes = data["amplitudes"]    # [a1, a2, ...]
+
+    # Validación de que las frecuencias y amplitudes tengan la misma longitud
+    if len(frecuencias) != len(amplitudes):
+        return jsonify({"error": "Las frecuencias y amplitudes deben tener la misma longitud"}), 400
+
+    n = data["n"]  # Número de puntos en la serie de Fourier
+    resultado, error = calcular_fourier(n, frecuencias, amplitudes)
+
+    # Crear un nuevo registro para la serie de Fourier en la base de datos
+    nueva_serie = SeriesMatematicas(
+        usuario_id=usuario_id,
+        tipo_serie="Fourier",
+        parametros={"frecuencias": frecuencias, "amplitudes": amplitudes, "n": n},
+        resultado=resultado[-1],  # Último valor de la serie
+        error=error,
+        iteraciones=n,
+        precision=data["precision"],  # Asegúrate de pasar la precisión
+        tiempo_calculo=data["tiempo_calculo"],  # Asegúrate de pasar el tiempo de cálculo
+        dispositivo=data.get("dispositivo", "Desconocido"),
+    )
+    db.session.add(nueva_serie)
+    db.session.commit()
+
+    # Enviar datos en tiempo real con WebSocket
+    socketio.emit(
+        "nueva_serie_fourier",
+        {
+            "tipo_serie": "Fourier",
+            "resultado": resultado.tolist(),  # Convertimos el array a lista
+            "error": error,
+        },
+    )
+
+    return jsonify({"mensaje": "Datos de la serie de Fourier almacenados correctamente"})
+
+# ✅ Endpoint para obtener datos históricos del usuario autenticado
+@app.route("/obtener_datos", methods=["GET"])
+@jwt_required()
+def obtener_datos():
+    usuario_id = get_jwt_identity()
+    series = SeriesMatematicas.query.filter_by(usuario_id=usuario_id).all()
+
+    if not series:
+        return jsonify([]), 200  # Devuelve lista vacía en vez de error
+
+    resultado = [
+        {
+            "tipo_serie": s.tipo_serie,
+            "resultado": float(s.resultado),
+            "error": float(s.error),
+            "fecha": s.fecha.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        for s in series
+    ]
+    return jsonify(resultado)
+
+# ✅ Nuevo endpoint para obtener TODAS las series matemáticas
+@app.route("/series", methods=["GET"])
+@jwt_required()
+def obtener_todas_las_series():
+    series = SeriesMatematicas.query.all()
+    resultado = [
+        {
+            "id": s.id,
+            "usuario_id": s.usuario_id,
+            "tipo_serie": s.tipo_serie,
+            "parametros": s.parametros,
+            "resultado": float(s.resultado),
+            "error": float(s.error),
+            "iteraciones": s.iteraciones,
+            "precision": float(s.precision),
+            "tiempo_calculo": s.tiempo_calculo,
+            "dispositivo": s.dispositivo,
+            "fecha": s.fecha.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        for s in series
+    ]
+    return jsonify(resultado)
 
 @app.route("/")  # Verifica que esta ruta esté definida
 def home():
     return "API funcionando correctamente 🚀"
 
-
 if __name__ == "__main__":
     app.run(debug=True)
+
