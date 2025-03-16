@@ -11,6 +11,8 @@ from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import datetime
 from datetime import timedelta
+import math
+import time
 
 # Inicializa Flask solo UNA vez
 app = Flask(__name__)
@@ -54,6 +56,17 @@ class SeriesMatematicas(db.Model):
     tiempo_calculo = db.Column(db.Float, nullable=False)
     dispositivo = db.Column(db.String(100))
     fecha = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+# Función para calcular Fibonacci exacto
+def fibonacci_exacto(n):
+    phi = (1 + math.sqrt(5)) / 2
+    psi = (1 - math.sqrt(5)) / 2
+    return round((math.pow(phi, n) - math.pow(psi, n)) / math.sqrt(5))
+
+# Función para aproximar Fibonacci usando coseno
+def fibonacci_coseno(n, theta=0.5):
+    phi = (1 + math.sqrt(5)) / 2
+    return (math.cos(n * theta) / math.sqrt(5)) * math.pow(phi, n)
 
 
 @app.route("/login", methods=["POST"])
@@ -111,6 +124,47 @@ def recibir_datos():
     )
 
     return jsonify({"mensaje": "Datos almacenados correctamente"})
+
+# Nuevo endpoint para Fibonacci con coseno
+@app.route("/enviar_fibonacci_coseno", methods=["POST"])
+@jwt_required()
+def enviar_fibonacci_coseno():
+    usuario_id = get_jwt_identity()
+    data = request.json
+    n = data.get("n", 10)  # Número de término de Fibonacci
+    theta = data.get("theta", 0.5)  # Ángulo theta por defecto
+    iteraciones = data.get("iteraciones", 1)
+    precision = data.get("precision", 0.0001)
+
+    # Calcular Fibonacci exacto y aproximado
+    start_time = time.time()
+    fib_exacto = fibonacci_exacto(n)
+    fib_coseno = fibonacci_coseno(n, theta)
+    error = abs(fib_exacto - fib_coseno)
+    tiempo_calculo = time.time() - start_time
+
+    nueva_serie = SeriesMatematicas(
+        usuario_id=usuario_id,
+        tipo_serie="fibonacci_coseno",
+        parametros={"n": n, "theta": theta},
+        resultado=fib_coseno,
+        error=error,
+        iteraciones=iteraciones,
+        precision=precision,
+        tiempo_calculo=tiempo_calculo,
+        dispositivo=data.get("dispositivo", "Desconocido"),
+    )
+    db.session.add(nueva_serie)
+    db.session.commit()
+
+    socketio.emit("nueva_serie", {
+        "tipo_serie": "fibonacci_coseno",
+        "resultado": float(fib_coseno),
+        "error": float(error),
+        "fecha": nueva_serie.fecha.strftime("%Y-%m-%d %H:%M:%S")
+    })
+
+    return jsonify({"mensaje": "Fibonacci con coseno almacenado correctamente"})
 
 
 # ✅ Endpoint para obtener datos históricos del usuario autenticado

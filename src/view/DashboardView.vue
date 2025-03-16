@@ -26,9 +26,16 @@
 
     <p v-else class="loading">Cargando datos... ⏳</p>
 
-    <!-- 📊 Gráfico de Líneas -->
+    <!-- 📊 Gráfico de Líneas - Series Generales -->
     <div v-if="chartData.labels.length" class="chart-container">
+      <h3>Series Generales</h3>
       <LineChart :chart-data="chartData" :chart-options="chartOptions" />
+    </div>
+
+    <!-- 📊 Gráfico de Líneas - Fibonacci Coseno -->
+    <div v-if="fibonacciChartData.labels.length" class="chart-container">
+      <h3>Fibonacci con Coseno</h3>
+      <LineChart :chart-data="fibonacciChartData" :chart-options="chartOptions" />
     </div>
   </div>
 </template>
@@ -98,7 +105,7 @@ socket.on("nueva_serie", (nuevaSerie) => {
 // 📅 Formato de fecha
 const formatoFecha = (fecha) => new Date(fecha).toLocaleString();
 
-// 📊 Datos del gráfico
+// 📊 Datos del gráfico - series generales
 const chartData = computed(() => {
   if (!series.value.length) return { labels: [], datasets: [] };
 
@@ -116,6 +123,35 @@ const chartData = computed(() => {
       {
         label: "Error",
         data: series.value.map((s) => s.error),
+        borderColor: "#FF6384",
+        backgroundColor: "rgba(255, 99, 132, 0.2)",
+        fill: true,
+        tension: 0.4,
+      },
+    ],
+  };
+});
+
+// 📊 Datos del gráfico - Fibonacci Coseno
+const fibonacciChartData = computed(() => {
+  const fibonacciCosenoSeries = series.value.filter(s => s.tipo_serie === "fibonacci_coseno");
+
+  if (!fibonacciCosenoSeries.length) return { labels: [], datasets: [] };
+
+  return {
+    labels: fibonacciCosenoSeries.map((s) => formatoFecha(s.fecha)),
+    datasets: [
+      {
+        label: "Fibonacci Coseno",
+        data: fibonacciCosenoSeries.map((s) => s.resultado),
+        borderColor: "#4BC0C0",
+        backgroundColor: "rgba(75, 192, 192, 0.2)",
+        fill: true,
+        tension: 0.4,
+      },
+      {
+        label: "Error",
+        data: fibonacciCosenoSeries.map((s) => s.error),
         borderColor: "#FF6384",
         backgroundColor: "rgba(255, 99, 132, 0.2)",
         fill: true,
@@ -165,6 +201,12 @@ th {
   width: 80%;
   margin-left: auto;
   margin-right: auto;
+}
+
+.chart-container h3 {
+  margin-bottom: 10px;
+  font-size: 1.2em;
+  color: #333;
 }
 
 .error {
