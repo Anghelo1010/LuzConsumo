@@ -11,6 +11,8 @@ from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import datetime
 from datetime import timedelta
+import random
+import math
 
 # Inicializa Flask solo UNA vez
 app = Flask(__name__)
@@ -54,6 +56,12 @@ class SeriesMatematicas(db.Model):
     tiempo_calculo = db.Column(db.Float, nullable=False)
     dispositivo = db.Column(db.String(100))
     fecha = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    resultado_seno = db.Column(db.Numeric, nullable=False)
+    resultado_coseno = db.Column(db.Numeric, nullable=False)
+    resultado_tangente = db.Column(db.Numeric, nullable=False)
+    error_seno = db.Column(db.Numeric, nullable=False)
+    error_coseno = db.Column(db.Numeric, nullable=False)
+    error_tangente = db.Column(db.Numeric, nullable=False)
 
 
 @app.route("/login", methods=["POST"])
@@ -86,23 +94,15 @@ def refresh():
 def recibir_datos():
     usuario_id = get_jwt_identity()
     data = request.json
-    nueva_serie = SeriesMatematicas(
-        usuario_id=usuario_id,
-        tipo_serie=data["tipo_serie"],
-        parametros=data["parametros"],
-        resultado=data["resultado"],
-        error=data["error"],
-        iteraciones=data["iteraciones"],
-        precision=data["precision"],
-        tiempo_calculo=data["tiempo_calculo"],
-        dispositivo=data.get("dispositivo", "Desconocido"),
-    )
-    db.session.add(nueva_serie)
-    db.session.commit()
-# Generar resultado aleatorio con una pequeña variación
-    variacion = random.uniform(-0.05, 0.05) * float(data["resultado"])
-    resultado_aleatorio = float(data["resultado"]) + variacion
-    error_aleatorio = abs(resultado_aleatorio - float(data["resultado"]))
+    
+    valor = float(data["resultado"])
+    resultado_seno = math.sin(valor)
+    resultado_coseno = math.cos(valor)
+    resultado_tangente = math.tan(valor)
+    
+    error_seno = abs(resultado_seno - math.sin(valor))
+    error_coseno = abs(resultado_coseno - math.cos(valor))
+    error_tangente = abs(resultado_tangente - math.tan(valor))
 
     nueva_serie = SeriesMatematicas(
         usuario_id=usuario_id,
@@ -114,11 +114,16 @@ def recibir_datos():
         precision=data["precision"],
         tiempo_calculo=data["tiempo_calculo"],
         dispositivo=data.get("dispositivo", "Desconocido"),
-        resultado_aleatorio=resultado_aleatorio,
-        error_aleatorio=error_aleatorio,
+        resultado_seno=resultado_seno,
+        resultado_coseno=resultado_coseno,
+        resultado_tangente=resultado_tangente,
+        error_seno=error_seno,
+        error_coseno=error_coseno,
+        error_tangente=error_tangente,
     )
     db.session.add(nueva_serie)
     db.session.commit()
+
     # Enviar datos en tiempo real con WebSocket
     socketio.emit(
         "nueva_serie",
@@ -126,56 +131,16 @@ def recibir_datos():
             "tipo_serie": data["tipo_serie"],
             "resultado": data["resultado"],
             "error": data["error"],
+            "resultado_seno": resultado_seno,
+            "resultado_coseno": resultado_coseno,
+            "resultado_tangente": resultado_tangente,
+            "error_seno": error_seno,
+            "error_coseno": error_coseno,
+            "error_tangente": error_tangente,
         },
     )
 
     return jsonify({"mensaje": "Datos almacenados correctamente"})
-
-
-# ✅ Endpoint para obtener datos históricos del usuario autenticado
-@app.route("/obtener_datos", methods=["GET"])
-@jwt_required()
-def obtener_datos():
-    usuario_id = get_jwt_identity()
-    series = SeriesMatematicas.query.filter_by(usuario_id=usuario_id).all()
-
-    if not series:
-        return jsonify([]), 200  # Devuelve lista vacía en vez de error
-
-    resultado = [
-        {
-            "tipo_serie": s.tipo_serie,
-            "resultado": float(s.resultado),
-            "error": float(s.error),
-            "fecha": s.fecha.strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        for s in series
-    ]
-    return jsonify(resultado)
-
-
-# ✅ Nuevo endpoint para obtener TODAS las series matemáticas
-@app.route("/series", methods=["GET"])
-@jwt_required()
-def obtener_todas_las_series():
-    series = SeriesMatematicas.query.all()
-    resultado = [
-        {
-            "id": s.id,
-            "usuario_id": s.usuario_id,
-            "tipo_serie": s.tipo_serie,
-            "parametros": s.parametros,
-            "resultado": float(s.resultado),
-            "error": float(s.error),
-            "iteraciones": s.iteraciones,
-            "precision": float(s.precision),
-            "tiempo_calculo": s.tiempo_calculo,
-            "dispositivo": s.dispositivo,
-            "fecha": s.fecha.strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        for s in series
-    ]
-    return jsonify(resultado)
 
 
 @app.route("/")  # Verifica que esta ruta esté definida
