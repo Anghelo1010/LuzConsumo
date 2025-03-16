@@ -4,6 +4,7 @@
 
     <div v-if="mensaje" class="error">{{ mensaje }}</div>
 
+    <!-- 📋 Tabla de datos -->
     <table v-if="series.length">
       <thead>
         <tr>
@@ -25,7 +26,7 @@
 
     <p v-else class="loading">Cargando datos... ⏳</p>
 
-    <!-- Gráfico de Líneas -->
+    <!-- 📊 Gráfico de Líneas -->
     <div v-if="chartData.labels.length" class="chart-container">
       <LineChart :chart-data="chartData" :chart-options="chartOptions" />
     </div>
@@ -33,12 +34,12 @@
 </template>
 
 <script setup>
-import api from "@/api";
+import LineChart from "@/components/LineChart.vue";
+import axios from "axios";
 import { io } from "socket.io-client";
 import { computed, onMounted, ref } from "vue";
-import { LineChart } from "vue-chart-3";
 
-// 📌 Registrar Chart.js con `LineController`
+// 📌 Registrar Chart.js
 import {
   CategoryScale,
   Chart as ChartJS,
@@ -51,25 +52,16 @@ import {
   Tooltip,
 } from "chart.js";
 
-ChartJS.register(
-  Title,
-  Tooltip,
-  Legend,
-  LineElement,
-  PointElement,
-  CategoryScale,
-  LinearScale,
-  LineController // ✅ Agregado al registro
-);
+ChartJS.register(Title, Tooltip, Legend, LineElement, PointElement, CategoryScale, LinearScale, LineController);
 
 // Variables reactivas
 const series = ref([]);
 const mensaje = ref("");
 
-// Configurar WebSocket
+// WebSocket
 const socket = io("http://localhost:5000");
 
-// Función para obtener datos
+// 🔥 Obtener datos desde la API con autenticación
 const obtenerDatos = async () => {
   const token = localStorage.getItem("token");
 
@@ -80,35 +72,33 @@ const obtenerDatos = async () => {
   }
 
   try {
-    const response = await api.get("/obtener_datos", {
+    const response = await axios.get("http://127.0.0.1:5000/obtener_datos", {
       headers: { Authorization: `Bearer ${token}` },
     });
+
     series.value = response.data;
     console.log("✅ Datos obtenidos correctamente:", response.data);
   } catch (error) {
     if (error.response) {
       mensaje.value = error.response.data?.error || "❌ Error al obtener datos.";
       console.error("📌 Error en la respuesta del servidor:", error.response);
-    } else if (error.request) {
-      mensaje.value = "❌ No se pudo conectar con el servidor.";
-      console.error("📌 Error en la solicitud: No hay respuesta del servidor.", error.request);
     } else {
-      mensaje.value = "❌ Ocurrió un error desconocido.";
-      console.error("📌 Error desconocido:", error.message);
+      mensaje.value = "❌ No se pudo conectar con el servidor.";
+      console.error("📌 Error en la solicitud:", error.message);
     }
   }
 };
 
-// WebSocket: recibir datos en tiempo real
+// 📡 Escuchar WebSockets para datos en tiempo real
 socket.on("nueva_serie", (nuevaSerie) => {
   series.value.unshift(nuevaSerie);
   console.log("🟢 Nueva serie matemática recibida:", nuevaSerie);
 });
 
-// Formato de fecha
+// 📅 Formato de fecha
 const formatoFecha = (fecha) => new Date(fecha).toLocaleString();
 
-// Datos del gráfico
+// 📊 Datos del gráfico
 const chartData = computed(() => {
   if (!series.value.length) return { labels: [], datasets: [] };
 
@@ -135,14 +125,14 @@ const chartData = computed(() => {
   };
 });
 
-// Opciones del gráfico
+// 🎯 Opciones del gráfico
 const chartOptions = {
   responsive: true,
   plugins: { legend: { position: "top" } },
   scales: { y: { beginAtZero: true } },
 };
 
-// Cargar datos al iniciar
+// 📌 Cargar datos al iniciar
 onMounted(obtenerDatos);
 </script>
 
