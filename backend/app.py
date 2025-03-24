@@ -1,8 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import psycopg2
-import numpy as np
-import math
 
 app = Flask(__name__)
 CORS(app)
@@ -20,11 +18,20 @@ def conectar_bd():
     return psycopg2.connect(**DB_CONFIG)
 
 
-@app.route("/series", methods=["GET"])
-def obtener_series():
+@app.route("/series/<tipo>", methods=["GET"])
+def obtener_series(tipo):
     conn = conectar_bd()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM series ORDER BY id ASC;")
+
+    if tipo == "coseno":
+        cursor.execute("SELECT * FROM series_coseno ORDER BY id ASC;")
+    elif tipo == "exp":
+        cursor.execute("SELECT * FROM series_maclaurin ORDER BY id ASC;")
+    elif tipo == "onda_cuadrada":
+        cursor.execute("SELECT * FROM series_fourier ORDER BY id ASC;")
+    else:
+        return jsonify({"error": "Tipo de serie no válido"}), 400
+
     datos = cursor.fetchall()
     cursor.close()
     conn.close()

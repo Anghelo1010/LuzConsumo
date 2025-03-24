@@ -1,16 +1,9 @@
-// api.js
-import axios from "axios";
-
-const API_URL = "http://localhost:5000";
-
-const obtenerSeries = async () => {
+export default async function obtenerSeries(tipo) {
   try {
-    const response = await axios.get(`${API_URL}/series`);
-    return response.data;
+    const response = await fetch(`http://localhost:5000/series/${tipo}`);
+    return await response.json();
   } catch (error) {
-    console.error("Error obteniendo datos:", error);
+    console.error("Error obteniendo series:", error);
     return [];
   }
-};
-
-export default obtenerSeries; // Exportación por defecto
+}

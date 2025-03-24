@@ -1,18 +1,18 @@
 <template>
-    <div class="form-container">
-      <h2>Calcular Nueva Serie</h2>
-      <form @submit.prevent="calcularSerie">
-        <div class="input-group">
-          <label for="valorX">Valor X</label>
-          <input type="number" v-model="valorX" id="valorX" required />
-        </div>
-        <div class="input-group">
-          <label for="valorY">Valor Y</label>
-          <input type="number" v-model="valorY" id="valorY" required />
-        </div>
-        <button type="submit">Calcular</button>
-      </form>
+<div class="form-container p-6 max-w-sm mx-auto bg-white rounded-lg shadow-lg">
+  <form @submit.prevent="calcularSerie">
+    <div class="mb-4">
+      <label for="valorX" class="block text-gray-700">Valor X</label>
+      <input type="number" v-model="valorX" id="valorX" class="w-full p-2 mt-2 border rounded" required />
     </div>
+    <div class="mb-4">
+      <label for="valorY" class="block text-gray-700">Valor Y</label>
+      <input type="number" v-model="valorY" id="valorY" class="w-full p-2 mt-2 border rounded" required />
+    </div>
+    <button type="submit" class="w-full p-2 bg-blue-500 text-white rounded">Calcular</button>
+  </form>
+</div>
+
   </template>
   
   <script>
