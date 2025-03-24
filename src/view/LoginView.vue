@@ -11,8 +11,6 @@
 </template>
 
 <script>
-import api from "@/api"; // Importamos la API configurada con Axios
-
 export default {
   data() {
     return {
@@ -22,31 +20,13 @@ export default {
     };
   },
   methods: {
-    async login() {
-      try {
-        const response = await api.post("/login", {
-          email: this.email,
-          clave: this.password, // Flask espera "clave"
-        });
-
-        console.log("✅ Respuesta del servidor:", response.data); // Verifica la respuesta en consola
-        const token = response.data.token; // Recibimos el token del backend
-
-        if (!token) {
-          this.mensaje = "❌ Error: No se recibió el token.";
-          console.error("❌ Error: No se recibió un token del servidor.");
-          return;
-        }
-
-        // Guardar el token en Local Storage
-        localStorage.setItem("token", token);
-        console.log("🔒 Token guardado en localStorage:", token);
-
+    login() {
+      // Comprobamos las credenciales de manera local
+      if (this.email === "usuario@example.com" && this.password === "contraseña123") {
         this.mensaje = "✅ Inicio de sesión exitoso 🚀";
         this.$router.push("/home"); // Redirigimos a la página principal
-      } catch (error) {
-        this.mensaje = "❌ Error al iniciar sesión. Verifica tus credenciales.";
-        console.error("📌 Error en la autenticación:", error.response || error.message);
+      } else {
+        this.mensaje = "❌ Error: Credenciales incorrectas.";
       }
     },
   },

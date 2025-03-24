@@ -1,3 +1,4 @@
+import SeriesFormView from "@/view/SeriesFormView.vue";
 import { createRouter, createWebHistory } from "vue-router";
 import { auth } from "../firebase";
 import DashboardView from "../view/DashboardView.vue"; // Importamos la nueva vista
@@ -14,6 +15,11 @@ const routes = [
   {
     path: "/dashboard", // Nueva ruta
     component: DashboardView,
+    meta: { requiresAuth: true, requiresNavbar: true }, // Requiere autenticación y navbar
+  },
+  {
+    path: "/seriesform", // Nueva ruta
+    component: SeriesFormView,
     meta: { requiresAuth: true, requiresNavbar: true }, // Requiere autenticación y navbar
   },
 ];

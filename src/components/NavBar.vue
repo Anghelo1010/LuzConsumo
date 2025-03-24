@@ -4,7 +4,7 @@
       <!-- Enlaces de navegación -->
       <router-link to="/home" class="nav-link">Inicio</router-link>
       <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
-      <router-link to="/informacion" class="nav-link">Información</router-link>
+      <router-link to="/SeriesForm" class="nav-link">SeriesForm</router-link>
       <router-link to="/SobreNosotros" class="nav-link">Sobre Nosotros</router-link>
     </div>
   </nav>
