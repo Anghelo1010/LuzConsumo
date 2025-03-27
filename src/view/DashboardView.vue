@@ -2,7 +2,11 @@
   <div>
     <h1>📊 Dashboard: Series Matemáticas</h1>
 
-    <table>
+    <div v-if="series.length === 0" class="no-data">
+      No hay datos disponibles para mostrar.
+    </div>
+
+    <table v-else>
       <thead>
         <tr>
           <th>Índice</th>
@@ -23,7 +27,7 @@
       </tbody>
     </table>
 
-    <canvas ref="chartCanvas"></canvas>
+    <canvas ref="chartCanvas" v-if="series.length > 0"></canvas>
   </div>
 </template>
 
@@ -40,31 +44,93 @@ export default {
   },
   methods: {
     async actualizarDatos() {
-      const datosGrafico = await obtenerDatosGrafico();
-      this.series = datosGrafico.indices.map((indice, i) => ({
-        indice,
-        x_value: datosGrafico.x_vals[i],
-        valor: datosGrafico.valores[i],
-        error: datosGrafico.errores[i],
-        tipo_serie: datosGrafico.tipos[i],
-      }));
-      this.actualizarGrafico(datosGrafico);
+      try {
+        const datosGrafico = await obtenerDatosGrafico();
+        
+        console.log('Datos recibidos en actualizarDatos:', datosGrafico);
+
+        // Verificar si hay datos válidos
+        if (
+          !datosGrafico ||
+          !datosGrafico.indices ||
+          !Array.isArray(datosGrafico.indices) ||
+          !datosGrafico.x_vals ||
+          !datosGrafico.valores ||
+          !datosGrafico.errores ||
+          !datosGrafico.tipos
+        ) {
+          console.warn('Datos incompletos recibidos del servidor:', datosGrafico);
+          this.series = [];
+          if (this.chart) {
+            this.chart.destroy();
+            this.chart = null;
+          }
+          return;
+        }
+
+        // Verificar si hay datos para mostrar
+        if (datosGrafico.indices.length === 0) {
+          console.warn('No hay datos para mostrar (arreglos vacíos)');
+          this.series = [];
+          if (this.chart) {
+            this.chart.destroy();
+            this.chart = null;
+          }
+          return;
+        }
+
+        // Mapear los datos para la tabla
+        this.series = datosGrafico.indices.map((indice, i) => {
+          return {
+            indice,
+            x_value: datosGrafico.x_vals[i],
+            valor: datosGrafico.valores[i],
+            error: datosGrafico.errores[i],
+            tipo_serie: datosGrafico.tipos[i],
+          };
+        });
+
+        console.log('Series mapeadas para la tabla:', this.series);
+
+        // Actualizar el gráfico
+        this.actualizarGrafico(datosGrafico);
+      } catch (error) {
+        console.error('Error en actualizarDatos:', error);
+        this.series = [];
+        if (this.chart) {
+          this.chart.destroy();
+          this.chart = null;
+        }
+      }
     },
     actualizarGrafico(datosGrafico) {
       if (this.chart) {
         this.chart.destroy();
       }
-      const ctx = this.$refs.chartCanvas.getContext('2d');
+
+      const canvas = this.$refs.chartCanvas;
+      if (!canvas) {
+        console.error('No se encontró el elemento canvas para el gráfico');
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.error('No se pudo obtener el contexto 2D del canvas');
+        return;
+      }
+
       this.chart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: datosGrafico.x_vals,
+          labels: datosGrafico.x_vals.map(val => val.toFixed(2)),
           datasets: [
             {
               label: 'Valor Aproximado',
               data: datosGrafico.valores,
               borderColor: 'blue',
               fill: false,
+              tension: 0.1,
             },
             {
               label: 'Error',
@@ -72,6 +138,7 @@ export default {
               borderColor: 'red',
               borderDash: [5, 5],
               fill: false,
+              tension: 0.1,
             },
           ],
         },
@@ -79,16 +146,31 @@ export default {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            x: { title: { display: true, text: 'x' } },
-            y: { title: { display: true, text: 'Valor / Error' } },
+            x: {
+              title: { display: true, text: 'x' },
+            },
+            y: {
+              title: { display: true, text: 'Valor / Error' },
+            },
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+            },
           },
         },
       });
+
+      console.log('Gráfico actualizado con éxito');
     },
   },
   created() {
+    console.log('Componente DashboardView creado, iniciando actualización de datos');
     this.actualizarDatos();
-    setInterval(this.actualizarDatos, 2000); // Actualización en tiempo real
+    setInterval(() => {
+      console.log('Actualizando datos en tiempo real...');
+      this.actualizarDatos();
+    }, 2000);
   },
   beforeDestroy() {
     if (this.chart) {
@@ -117,5 +199,11 @@ canvas {
   max-width: 80%;
   max-height: 500px;
   margin: 20px auto;
+  display: block;
+}
+.no-data {
+  text-align: center;
+  color: #888;
+  margin: 20px;
 }
 </style>

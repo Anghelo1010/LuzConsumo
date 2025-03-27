@@ -1,10 +1,14 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS  # Importar CORS
 import numpy as np
 import math
 import psycopg2
 from datetime import datetime
 
 app = Flask(__name__)
+
+# Habilitar CORS para permitir solicitudes desde http://localhost:5173
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 
 DB_CONFIG = {
     "dbname": "series_matematicas",
@@ -123,12 +127,10 @@ def agregar_datos_iniciales(tipo_serie, x_vals, num_terminos):
 @app.route('/insertar', methods=['POST'])
 def insertar():
     try:
-        # Obtener los datos del cuerpo de la solicitud
         data = request.json
         if not data:
             return jsonify({"status": "error", "message": "No se proporcionaron datos en el cuerpo de la solicitud"}), 400
 
-        # Validar y extraer los parámetros
         if 'n' not in data or 'num_terminos' not in data or 'tipo_serie' not in data:
             return jsonify({"status": "error", "message": "Faltan parámetros: 'n', 'num_terminos' o 'tipo_serie'"}), 400
 
@@ -136,11 +138,9 @@ def insertar():
         num_terminos = int(data['num_terminos'])
         tipo_serie = data['tipo_serie']
 
-        # Validar que n y num_terminos sean positivos
         if n <= 0 or num_terminos <= 0:
             return jsonify({"status": "error", "message": "Los valores de 'n' y 'num_terminos' deben ser mayores que 0"}), 400
 
-        # Definir los valores de x según el tipo de serie
         if tipo_serie == "coseno":
             x_vals = np.linspace(0, 2 * np.pi, n)
         elif tipo_serie == "exp":
@@ -152,10 +152,7 @@ def insertar():
         else:
             return jsonify({"status": "error", "message": f"Tipo de serie no válido: {tipo_serie}"}), 400
 
-        # Llamar a la función para agregar los datos
         agregar_datos_iniciales(tipo_serie, x_vals, num_terminos)
-
-        # Devolver respuesta de éxito
         return jsonify({"status": "success", "message": f"Se agregaron {n} datos para {tipo_serie}"})
 
     except ValueError as ve:
@@ -167,7 +164,8 @@ def insertar():
 def datos_grafico():
     conn = conectar_bd()
     if conn is None:
-        return jsonify({"data": [], "layout": {}})
+        print("❌ No se pudo conectar a la base de datos en /datos_grafico")
+        return jsonify({"data": [], "layout": {}, "indices": [], "x_vals": [], "valores": [], "errores": [], "tipos": []})
     
     try:
         cursor = conn.cursor()
@@ -181,13 +179,16 @@ def datos_grafico():
             ) AS combined ORDER BY x_value
         """)
         resultados = cursor.fetchall()
-        cursor.close()
-        conn.close()
+        print(f"📊 Resultados crudos de la consulta: {resultados}")
+
+        if not resultados:
+            print("⚠️ No se encontraron datos en la base de datos")
+            return jsonify({"data": [], "layout": {}, "indices": [], "x_vals": [], "valores": [], "errores": [], "tipos": []})
 
         indices = [row[0] for row in resultados]
-        x_vals = [row[1] for row in resultados]
-        valores = [row[2] for row in resultados]
-        errores = [row[3] for row in resultados]
+        x_vals = [float(row[1]) for row in resultados]
+        valores = [float(row[2]) for row in resultados]
+        errores = [float(row[3]) for row in resultados]
         tipos = [row[4] for row in resultados]
 
         data = [
@@ -200,10 +201,29 @@ def datos_grafico():
             "yaxis": {"title": "Valor / Error"},
             "legend": {"x": 1, "y": 1}
         }
-        return jsonify({"data": data, "layout": layout, "tipos": tipos, "indices": indices, "x_vals": x_vals, "valores": valores, "errores": errores})
+
+        print(f"✅ Datos procesados: {len(resultados)} filas")
+        print(f"Índices: {indices[:5]}...")
+        print(f"X_vals: {x_vals[:5]}...")
+        print(f"Valores: {valores[:5]}...")
+        print(f"Errores: {errores[:5]}...")
+        print(f"Tipos: {tipos[:5]}...")
+
+        return jsonify({
+            "data": data,
+            "layout": layout,
+            "tipos": tipos,
+            "indices": indices,
+            "x_vals": x_vals,
+            "valores": valores,
+            "errores": errores
+        })
     except Exception as e:
         print(f"❌ Error al obtener datos para el gráfico: {e}")
-        return jsonify({"data": [], "layout": {}})
+        return jsonify({"data": [], "layout": {}, "indices": [], "x_vals": [], "valores": [], "errores": [], "tipos": []})
+    finally:
+        if conn:
+            conn.close()
 
 @app.route("/series/<tipo>", methods=["GET"])
 def obtener_series(tipo):
