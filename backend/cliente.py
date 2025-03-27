@@ -2,7 +2,8 @@ from tkinter import *
 from tkinter import messagebox
 import requests
 
-SERVER_URL = "http://localhost:5000/insertar"
+# Ajusta esta URL según la IP del dispositivo donde corre el backend
+SERVER_URL = "http://192.168.0.100:5000/insertar"  # Cambia 192.168.0.100 por la IP correcta
 
 def insertar_valores():
     try:
@@ -11,14 +12,17 @@ def insertar_valores():
         tipo_serie = serie_var.get()
         
         data = {"n": n, "num_terminos": num_terminos, "tipo_serie": tipo_serie}
-        response = requests.post(SERVER_URL, json=data)
+        # Aumentamos el timeout a 10 segundos
+        response = requests.post(SERVER_URL, json=data, timeout=10)
         
         if response.status_code == 200:
             messagebox.showinfo("Éxito", f"Datos enviados al servidor correctamente.\nSerie: {tipo_serie}\nPuntos: {n}\nTérminos: {num_terminos}")
         else:
-            messagebox.showerror("Error", "No se pudo enviar los datos al servidor.")
-    except Exception as e:
-        messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"No se pudo enviar los datos al servidor. Código: {response.status_code}")
+    except requests.exceptions.ConnectTimeout:
+        messagebox.showerror("Error", "Tiempo de conexión agotado. Verifica que el servidor esté corriendo y la IP sea correcta.")
+    except requests.exceptions.RequestException as e:
+        messagebox.showerror("Error", f"Error de conexión: {str(e)}")
 
 root = Tk()
 root.title("Cliente - Series Matemáticas")

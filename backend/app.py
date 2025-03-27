@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, jsonify, request
 import numpy as np
 import math
 import psycopg2
@@ -6,22 +6,21 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-
 DB_CONFIG = {
     "dbname": "series_matematicas",
     "user": "postgres",
     "password": "admin",
     "host": "localhost",
     "port": "5432",
+    "options": "-c client_encoding=UTF8"  # Forzar codificación UTF-8
 }
-
 
 def conectar_bd():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         return conn
     except Exception as e:
-        print(f"❌ Error de conexión: {e}")
+        print(f"❌ Error de conexión a la base de datos: {e}")
         return None
 
 def inicializar_bd():
@@ -146,55 +145,65 @@ def datos_grafico():
     if conn is None:
         return jsonify({"data": [], "layout": {}})
     
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT indice, x_value, valor, error, tipo_serie 
-        FROM (
-            SELECT indice, x_value, valor, error, tipo_serie FROM series_coseno
-            UNION ALL SELECT indice, x_value, valor, error, tipo_serie FROM series_maclaurin
-            UNION ALL SELECT indice, x_value, valor, error, tipo_serie FROM series_fourier
-            UNION ALL SELECT indice, x_value, valor, error, tipo_serie FROM series_fibonacci_coseno
-        ) AS combined ORDER BY x_value
-    """)
-    resultados = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT indice, x_value, valor, error, tipo_serie 
+            FROM (
+                SELECT indice, x_value, valor, error, tipo_serie FROM series_coseno
+                UNION ALL SELECT indice, x_value, valor, error, tipo_serie FROM series_maclaurin
+                UNION ALL SELECT indice, x_value, valor, error, tipo_serie FROM series_fourier
+                UNION ALL SELECT indice, x_value, valor, error, tipo_serie FROM series_fibonacci_coseno
+            ) AS combined ORDER BY x_value
+        """)
+        resultados = cursor.fetchall()
+        cursor.close()
+        conn.close()
 
-    indices = [row[0] for row in resultados]
-    x_vals = [row[1] for row in resultados]
-    valores = [row[2] for row in resultados]
-    errores = [row[3] for row in resultados]
-    tipos = [row[4] for row in resultados]
+        indices = [row[0] for row in resultados]
+        x_vals = [row[1] for row in resultados]
+        valores = [row[2] for row in resultados]
+        errores = [row[3] for row in resultados]
+        tipos = [row[4] for row in resultados]
 
-    data = [
-        {"x": x_vals, "y": valores, "type": "scatter", "name": "Valor Aproximado", "mode": "lines+markers"},
-        {"x": x_vals, "y": errores, "type": "scatter", "name": "Error", "mode": "lines", "line": {"dash": "dash"}}
-    ]
-    layout = {
-        "title": "Aproximaciones de Series Matemáticas y Error",
-        "xaxis": {"title": "x"},
-        "yaxis": {"title": "Valor / Error"},
-        "legend": {"x": 1, "y": 1}
-    }
-    return jsonify({"data": data, "layout": layout, "tipos": tipos, "indices": indices, "x_vals": x_vals, "valores": valores, "errores": errores})
+        data = [
+            {"x": x_vals, "y": valores, "type": "scatter", "name": "Valor Aproximado", "mode": "lines+markers"},
+            {"x": x_vals, "y": errores, "type": "scatter", "name": "Error", "mode": "lines", "line": {"dash": "dash"}}
+        ]
+        layout = {
+            "title": "Aproximaciones de Series Matemáticas y Error",
+            "xaxis": {"title": "x"},
+            "yaxis": {"title": "Valor / Error"},
+            "legend": {"x": 1, "y": 1}
+        }
+        return jsonify({"data": data, "layout": layout, "tipos": tipos, "indices": indices, "x_vals": x_vals, "valores": valores, "errores": errores})
+    except Exception as e:
+        print(f"❌ Error al obtener datos para el gráfico: {e}")
+        return jsonify({"data": [], "layout": {}})
 
 @app.route("/series/<tipo>", methods=["GET"])
 def obtener_series(tipo):
     conn = conectar_bd()
-    cursor = conn.cursor()
-    tabla = {
-        "coseno": "series_coseno",
-        "exp": "series_maclaurin",
-        "onda_cuadrada": "series_fourier",
-        "fibonacci_coseno": "series_fibonacci_coseno"
-    }.get(tipo, None)
-    if not tabla:
-        return jsonify({"error": "Tipo de serie no válido"}), 400
-    cursor.execute(f"SELECT * FROM {tabla} ORDER BY id ASC;")
-    datos = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify(datos)
+    if conn is None:
+        return jsonify({"error": "No se pudo conectar a la base de datos"}), 500
+    try:
+        cursor = conn.cursor()
+        tabla = {
+            "coseno": "series_coseno",
+            "exp": "series_maclaurin",
+            "onda_cuadrada": "series_fourier",
+            "fibonacci_coseno": "series_fibonacci_coseno"
+        }.get(tipo, None)
+        if not tabla:
+            return jsonify({"error": "Tipo de serie no válido"}), 400
+        cursor.execute(f"SELECT * FROM {tabla} ORDER BY id ASC;")
+        datos = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify(datos)
+    except Exception as e:
+        print(f"❌ Error al obtener series: {e}")
+        return jsonify({"error": "Error al obtener datos"}), 500
 
 if __name__ == "__main__":
     inicializar_bd()
