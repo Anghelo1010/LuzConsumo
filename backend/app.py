@@ -3,6 +3,8 @@ from flask_cors import CORS
 import psycopg2
 import random
 import math
+import numpy as np
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -13,37 +15,93 @@ DB_CONFIG = {
     "password": "admin",
     "host": "localhost",
     "port": "5432",
+    "options": "-c client_encoding=UTF8",
 }
+
+
+def inicializar_bd():
+    conn = conectar_bd()
+    if conn is None:
+        return
+    try:
+        cursor = conn.cursor()
+        tablas = {
+            "series_coseno": "coseno",
+            "series_maclaurin": "exp",
+            "series_fourier": "onda_cuadrada",
+            "series_fibonacci_coseno": "fibonacci_coseno",
+        }
+        for tabla, tipo_serie in tablas.items():
+            cursor.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {tabla} (
+                    id SERIAL PRIMARY KEY, indice INT, x_value NUMERIC, valor NUMERIC, error NUMERIC, tipo_serie TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """
+            )
+            cursor.execute(f"SELECT COUNT(*) FROM {tabla}")
+            if cursor.fetchone()[0] == 0:
+                if tipo_serie == "coseno":
+                    agregar_datos_iniciales(
+                        tipo_serie, np.linspace(0, 2 * np.pi, 10), 5
+                    )
+                elif tipo_serie == "exp":
+                    agregar_datos_iniciales(tipo_serie, np.linspace(-2, 2, 10), 5)
+                elif tipo_serie == "onda_cuadrada":
+                    agregar_datos_iniciales(
+                        tipo_serie, np.linspace(-np.pi, np.pi, 10), 5
+                    )
+                elif tipo_serie == "fibonacci_coseno":
+                    agregar_datos_iniciales(
+                        tipo_serie, np.linspace(0, 2 * np.pi, 10), 5
+                    )
+        conn.commit()
+        cursor.close()
+        print("✅ Tablas verificadas y datos iniciales creados correctamente.")
+    except Exception as e:
+        print(f"❌ Error al inicializar la base de datos: {e}")
+    finally:
+        conn.close()
+
 
 def conectar_bd():
     """Función para conectar a la base de datos PostgreSQL."""
     return psycopg2.connect(**DB_CONFIG)
 
+
 def generar_datos(cantidad):
     """Genera datos de Fourier en la base de datos."""
     conn = conectar_bd()
     cursor = conn.cursor()
-    
+
     cursor.execute("SELECT valor FROM series_fourier ORDER BY indice DESC LIMIT 1")
     last_real = cursor.fetchone()
-    last_real = last_real[0] if last_real else 0  # Si no hay datos previos, empezar en 0
+    last_real = (
+        last_real[0] if last_real else 0
+    )  # Si no hay datos previos, empezar en 0
 
     for i in range(cantidad):
         x_value = float(last_real) + random.uniform(-0.2, 0.2)
-        valor = x_value + random.uniform(-0.5, 0.5) * (1 / (i + 1))  # Aproximación Fourier
+        valor = x_value + random.uniform(-0.5, 0.5) * (
+            1 / (i + 1)
+        )  # Aproximación Fourier
         error = abs(valor - x_value)
         tipo_serie = "Fourier"
         fecha = "NOW()"
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO series_fourier (indice, x_value, valor, error, tipo_serie, fecha)
             VALUES (%s, %s, %s, %s, %s, %s)
-        """, (i, x_value, valor, error, tipo_serie, fecha))
+        """,
+            (i, x_value, valor, error, tipo_serie, fecha),
+        )
         last_real = x_value  # Actualizar último valor real
-     
+
     conn.commit()
     cursor.close()
     conn.close()
+
 
 @app.route("/generar_datos", methods=["POST"])
 def generar_datos_endpoint():
@@ -52,11 +110,14 @@ def generar_datos_endpoint():
     generar_datos(cantidad)
     return jsonify({"message": f"Se agregaron {cantidad} datos"}), 200
 
+
 def obtener_datos():
     """Obtiene los últimos 10 datos de la serie de Fourier."""
     conn = conectar_bd()
     cursor = conn.cursor()
-    cursor.execute("SELECT indice, x_value, valor, error FROM series_fourier ORDER BY indice DESC LIMIT 10")
+    cursor.execute(
+        "SELECT indice, x_value, valor, error FROM series_fourier ORDER BY indice DESC LIMIT 10"
+    )
     resultados = cursor.fetchall()
 
     cursor.close()
@@ -64,17 +125,25 @@ def obtener_datos():
 
     return {
         "data": [
-            {"x": [r[0] for r in resultados], "y": [r[2] for r in resultados]},  # Valores de la función
-            {"x": [r[0] for r in resultados], "y": [r[1] for r in resultados]},  # X Values
+            {
+                "x": [r[0] for r in resultados],
+                "y": [r[2] for r in resultados],
+            },  # Valores de la función
+            {
+                "x": [r[0] for r in resultados],
+                "y": [r[1] for r in resultados],
+            },  # X Values
             {"x": [r[0] for r in resultados], "y": [r[3] for r in resultados]},  # Error
         ],
-        "layout": {"title": "Serie de Fourier en tiempo real"}
+        "layout": {"title": "Serie de Fourier en tiempo real"},
     }
+
 
 @app.route("/datos_grafico", methods=["GET"])
 def datos_grafico():
     """Retorna los datos en formato JSON para la visualización."""
     return jsonify(obtener_datos())
 
+
 if __name__ == "__main__":
-     app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
