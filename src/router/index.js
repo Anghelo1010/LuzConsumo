@@ -1,9 +1,10 @@
-import SeriesFormView from "@/view/SeriesFormView.vue";
 import { createRouter, createWebHistory } from "vue-router";
 import { auth } from "../firebase";
-import DashboardView from "../view/DashboardView.vue"; // Importamos la nueva vista
+import DashboardView from "../view/DashboardView.vue";
 import HomeView from "../view/HomeView.vue";
 import LoginView from "../view/LoginView.vue";
+import FourierView from "@/view/Fourier.vue";
+import SeriesFormView from "../view/SeriesFormView.vue";
 
 const routes = [
   { path: "/", component: LoginView, meta: { requiresNavbar: false } },
@@ -13,14 +14,19 @@ const routes = [
     meta: { requiresAuth: true, requiresNavbar: true },
   },
   {
-    path: "/dashboard", // Nueva ruta
+    path: "/dashboard",
     component: DashboardView,
-    meta: { requiresAuth: true, requiresNavbar: true }, // Requiere autenticación y navbar
+    meta: { requiresAuth: true, requiresNavbar: true },
   },
   {
-    path: "/seriesform", // Nueva ruta
+    path: "/seriesform",
     component: SeriesFormView,
-    meta: { requiresAuth: true, requiresNavbar: true }, // Requiere autenticación y navbar
+    meta: { requiresAuth: true, requiresNavbar: true },
+  },
+  {
+    path: "/fourier",
+    component: FourierView,
+    meta: { requiresAuth: true, requiresNavbar: true },
   },
 ];
 
@@ -29,15 +35,15 @@ const router = createRouter({
   routes,
 });
 
-// Middleware de autenticación
-router.beforeEach((to, from, next) => {
-  auth.onAuthStateChanged((user) => {
-    if (to.meta.requiresAuth && !user) {
-      next("/"); // Redirigir si no está autenticado
-    } else {
-      next();
-    }
-  });
+// Middleware de autenticación optimizado
+router.beforeEach(async (to, from, next) => {
+  const user = auth.currentUser; // Obtener usuario autenticado
+
+  if (to.meta.requiresAuth && !user) {
+    next("/"); // Redirige si no está autenticado
+  } else {
+    next();
+  }
 });
 
 export default router;
