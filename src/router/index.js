@@ -11,22 +11,22 @@ const routes = [
   {
     path: "/home",
     component: HomeView,
-    meta: { requiresAuth: false, requiresNavbar: false },
+    meta: { requiresAuth: false, requiresNavbar: true },
   },
   {
     path: "/dashboard",
     component: DashboardView,
-    meta: { requiresAuth: false, requiresNavbar: false },
+    meta: { requiresAuth: false, requiresNavbar: true },
   },
   {
     path: "/seriesform",
     component: SeriesFormView,
-    meta: { requiresAuth: false, requiresNavbar: false },
+    meta: { requiresAuth: false, requiresNavbar: true },
   },
   {
     path: "/fourier",
     component: FourierView,
-    meta: { requiresAuth: false, requiresNavbar: false },
+    meta: { requiresAuth: false, requiresNavbar: true },
   },
 ];
 
