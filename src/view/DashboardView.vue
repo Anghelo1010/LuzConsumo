@@ -1,68 +1,66 @@
 <template>
-  <div class="container">
-    <h1>📊 Serie de Fourier</h1>
+  <div>
+    <h1>📊 Series Matemáticas</h1>
 
-    <canvas ref="chartCanvas"></canvas>
+    <label for="tipoSerie">Selecciona una serie:</label>
+    <select v-model="tipoSeleccionado" @change="cargarSeries">
+      <option value="coseno">Coseno</option>
+      <option value="exp">e^x</option>
+      <option value="onda_cuadrada">Onda Cuadrada</option>
+    </select>
 
-    <h2>📋 Últimos 10 Datos</h2>
     <table>
       <thead>
         <tr>
+          <th>ID</th>
           <th>Índice</th>
           <th>X</th>
-          <th>Valor Aproximado</th>
+          <th>Valor</th>
           <th>Error</th>
+          <th>Tipo</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="dato in datos" :key="dato.indice">
-          <td>{{ dato.indice }}</td>
-          <td>{{ dato.x.toFixed(3) }}</td>
-          <td>{{ dato.valor.toFixed(3) }}</td>
-          <td>{{ dato.error.toFixed(3) }}</td>
+        <tr v-for="serie in series" :key="serie[0]">
+          <td>{{ serie[0] }}</td>
+          <td>{{ serie[1] }}</td>
+          <td>{{ serie[2] }}</td>
+          <td>{{ serie[3] }}</td>
+          <td>{{ serie[4] }}</td>
+          <td>{{ serie[5] }}</td>
         </tr>
       </tbody>
     </table>
+
+    <canvas ref="chartCanvas"></canvas>
   </div>
 </template>
 
 <script>
 import Chart from "chart.js/auto";
-import axios from "axios";
+import obtenerSeries from "../services/api.js";
 
 export default {
   data() {
     return {
-      datos: [],
+      series: [],
+      tipoSeleccionado: "coseno",
       chart: null,
     };
   },
   methods: {
-    async obtenerDatos() {
-      try {
-        const response = await axios.get("http://localhost:5000/datos_grafico");
-        const data = response.data.data;
-
-        this.datos = data[0].x.map((_, i) => ({
-          indice: data[0].x[i],
-          x: data[1].y[i],
-          valor: data[0].y[i],
-          error: data[2].y[i],
-        })).slice(-10);
-
-        this.actualizarGrafico();
-      } catch (error) {
-        console.error("Error al obtener datos:", error);
-      }
+    async cargarSeries() {
+      this.series = await obtenerSeries(this.tipoSeleccionado);
+      this.actualizarGrafico();
     },
     actualizarGrafico() {
       if (this.chart) {
-        this.chart.destroy();
+        this.chart.destroy(); // Eliminar gráfico anterior
       }
-
+      
       const ctx = this.$refs.chartCanvas.getContext("2d");
-      const xValores = this.datos.map(d => d.x);
-      const yValores = this.datos.map(d => d.valor);
+      const xValores = this.series.map(serie => serie[2]);
+      const yValores = this.series.map(serie => serie[3]);
 
       this.chart = new Chart(ctx, {
         type: "line",
@@ -70,7 +68,7 @@ export default {
           labels: xValores,
           datasets: [
             {
-              label: "Serie de Fourier",
+              label: `Serie ${this.tipoSeleccionado}`,
               data: yValores,
               borderColor: "blue",
               fill: false,
@@ -84,22 +82,15 @@ export default {
       });
     }
   },
-  async mounted() {
-    await this.obtenerDatos();
-    setInterval(this.obtenerDatos, 5000); // Actualiza cada 5 segundos
-  },
+  async created() {
+    await this.cargarSeries();
+  }
 };
 </script>
 
 <style scoped>
-.container {
-  width: 80%;
-  margin: auto;
-  text-align: center;
-}
 table {
   width: 100%;
-  margin-top: 20px;
   border-collapse: collapse;
 }
 th, td {
