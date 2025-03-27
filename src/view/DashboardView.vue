@@ -2,8 +2,19 @@
   <div>
     <h1>📊 Dashboard: Series Matemáticas</h1>
 
+    <!-- Selector de serie -->
+    <div class="selector">
+      <label for="serie-select">Seleccionar Serie: </label>
+      <select id="serie-select" v-model="selectedSerie" @change="actualizarDatos">
+        <option value="" disabled>Elige una serie</option>
+        <option v-for="serie in seriesDisponibles" :key="serie" :value="serie">
+          {{ serie }}
+        </option>
+      </select>
+    </div>
+
     <div v-if="series.length === 0" class="no-data">
-      No hay datos disponibles para mostrar.
+      No hay datos disponibles para mostrar. Selecciona una serie o inserta datos.
     </div>
 
     <table v-else>
@@ -40,16 +51,28 @@ export default {
     return {
       series: [],
       chart: null,
+      selectedSerie: '', // Serie seleccionada por el usuario
+      seriesDisponibles: ['coseno', 'exp', 'onda_cuadrada', 'fibonacci_coseno'], // Opciones de series
     };
   },
   methods: {
     async actualizarDatos() {
+      // No hacer nada si no se ha seleccionado una serie
+      if (!this.selectedSerie) {
+        this.series = [];
+        if (this.chart) {
+          this.chart.destroy();
+          this.chart = null;
+        }
+        return;
+      }
+
       try {
-        const datosGrafico = await obtenerDatosGrafico();
+        // Pasar la serie seleccionada como parámetro en la solicitud
+        const datosGrafico = await obtenerDatosGrafico(this.selectedSerie);
         
         console.log('Datos recibidos en actualizarDatos:', datosGrafico);
 
-        // Verificar si hay datos válidos
         if (
           !datosGrafico ||
           !datosGrafico.indices ||
@@ -68,7 +91,6 @@ export default {
           return;
         }
 
-        // Verificar si hay datos para mostrar
         if (datosGrafico.indices.length === 0) {
           console.warn('No hay datos para mostrar (arreglos vacíos)');
           this.series = [];
@@ -79,7 +101,6 @@ export default {
           return;
         }
 
-        // Mapear los datos para la tabla
         this.series = datosGrafico.indices.map((indice, i) => {
           return {
             indice,
@@ -92,7 +113,6 @@ export default {
 
         console.log('Series mapeadas para la tabla:', this.series);
 
-        // Actualizar el gráfico
         this.actualizarGrafico(datosGrafico);
       } catch (error) {
         console.error('Error en actualizarDatos:', error);
@@ -157,6 +177,10 @@ export default {
             legend: {
               position: 'top',
             },
+            title: {
+              display: true,
+              text: `Aproximaciones de la Serie ${this.selectedSerie} y Error`,
+            },
           },
         },
       });
@@ -166,10 +190,12 @@ export default {
   },
   created() {
     console.log('Componente DashboardView creado, iniciando actualización de datos');
-    this.actualizarDatos();
+    // No llamamos a actualizarDatos aquí porque queremos que el usuario seleccione una serie primero
     setInterval(() => {
-      console.log('Actualizando datos en tiempo real...');
-      this.actualizarDatos();
+      if (this.selectedSerie) {
+        console.log('Actualizando datos en tiempo real...');
+        this.actualizarDatos();
+      }
     }, 2000);
   },
   beforeDestroy() {
@@ -181,6 +207,10 @@ export default {
 </script>
 
 <style scoped>
+.selector {
+  text-align: center;
+  margin: 20px 0;
+}
 table {
   width: 80%;
   border-collapse: collapse;

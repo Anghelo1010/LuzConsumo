@@ -22,9 +22,13 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:5000';
 
-export async function obtenerDatosGrafico() {
+export async function obtenerDatosGrafico(serie) {
   try {
-    const response = await axios.get(`${API_URL}/datos_grafico`, { timeout: 5000 });
+    // Incluir el parámetro 'serie' en la solicitud
+    const response = await axios.get(`${API_URL}/datos_grafico`, {
+      params: { serie },
+      timeout: 5000,
+    });
     console.log('Datos recibidos del servidor en api.js:', response.data);
     return response.data;
   } catch (error) {

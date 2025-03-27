@@ -1,13 +1,11 @@
 from flask import Flask, jsonify, request
-from flask_cors import CORS  # Importar CORS
+from flask_cors import CORS
 import numpy as np
 import math
 import psycopg2
 from datetime import datetime
 
 app = Flask(__name__)
-
-# Habilitar CORS para permitir solicitudes desde http://localhost:5173
 CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 
 DB_CONFIG = {
@@ -162,6 +160,9 @@ def insertar():
 
 @app.route('/datos_grafico')
 def datos_grafico():
+    # Obtener el parámetro 'serie' de la query string
+    serie = request.args.get('serie', default=None, type=str)
+    
     conn = conectar_bd()
     if conn is None:
         print("❌ No se pudo conectar a la base de datos en /datos_grafico")
@@ -169,20 +170,31 @@ def datos_grafico():
     
     try:
         cursor = conn.cursor()
-        cursor.execute("""
+        
+        # Mapear el tipo de serie a la tabla correspondiente
+        tabla = {
+            "coseno": "series_coseno",
+            "exp": "series_maclaurin",
+            "onda_cuadrada": "series_fourier",
+            "fibonacci_coseno": "series_fibonacci_coseno"
+        }.get(serie, None)
+
+        if not serie or not tabla:
+            # Si no se especifica una serie válida, devolver datos vacíos
+            print(f"⚠️ Serie no especificada o no válida: {serie}")
+            return jsonify({"data": [], "layout": {}, "indices": [], "x_vals": [], "valores": [], "errores": [], "tipos": []})
+
+        # Consultar solo los datos de la tabla correspondiente a la serie seleccionada
+        cursor.execute(f"""
             SELECT indice, x_value, valor, error, tipo_serie 
-            FROM (
-                SELECT indice, x_value, valor, error, tipo_serie FROM series_coseno
-                UNION ALL SELECT indice, x_value, valor, error, tipo_serie FROM series_maclaurin
-                UNION ALL SELECT indice, x_value, valor, error, tipo_serie FROM series_fourier
-                UNION ALL SELECT indice, x_value, valor, error, tipo_serie FROM series_fibonacci_coseno
-            ) AS combined ORDER BY x_value
+            FROM {tabla}
+            ORDER BY x_value
         """)
         resultados = cursor.fetchall()
-        print(f"📊 Resultados crudos de la consulta: {resultados}")
+        print(f"📊 Resultados crudos de la consulta para {serie}: {resultados}")
 
         if not resultados:
-            print("⚠️ No se encontraron datos en la base de datos")
+            print(f"⚠️ No se encontraron datos para la serie {serie}")
             return jsonify({"data": [], "layout": {}, "indices": [], "x_vals": [], "valores": [], "errores": [], "tipos": []})
 
         indices = [row[0] for row in resultados]
@@ -196,13 +208,13 @@ def datos_grafico():
             {"x": x_vals, "y": errores, "type": "scatter", "name": "Error", "mode": "lines", "line": {"dash": "dash"}}
         ]
         layout = {
-            "title": "Aproximaciones de Series Matemáticas y Error",
+            "title": f"Aproximaciones de la Serie {serie.capitalize()} y Error",
             "xaxis": {"title": "x"},
             "yaxis": {"title": "Valor / Error"},
             "legend": {"x": 1, "y": 1}
         }
 
-        print(f"✅ Datos procesados: {len(resultados)} filas")
+        print(f"✅ Datos procesados para {serie}: {len(resultados)} filas")
         print(f"Índices: {indices[:5]}...")
         print(f"X_vals: {x_vals[:5]}...")
         print(f"Valores: {valores[:5]}...")
