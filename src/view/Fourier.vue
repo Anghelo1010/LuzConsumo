@@ -7,18 +7,50 @@
 
     <h2 class="text-xl font-semibold mt-4">Gráfico en Tiempo Real</h2>
     <div id="grafico" class="w-full h-96"></div>
+
+    <h2 class="text-xl font-semibold mt-4">Últimos 10 Datos</h2>
+    <table class="table-auto border-collapse border border-gray-500 w-full mt-2">
+      <thead>
+        <tr class="bg-gray-200">
+          <th class="border px-4 py-2">Índice</th>
+          <th class="border px-4 py-2">X Value</th>
+          <th class="border px-4 py-2">Valor Aproximado</th>
+          <th class="border px-4 py-2">Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(dato, index) in datos" :key="index">
+  <td class="border px-4 py-2">{{ dato.indice }}</td>
+  <td class="border px-4 py-2">{{ isNaN(dato.x_value) ? 'N/A' : Number(dato.x_value).toFixed(3) }}</td>
+  <td class="border px-4 py-2">{{ isNaN(dato.valor) ? 'N/A' : Number(dato.valor).toFixed(3) }}</td>
+  <td class="border px-4 py-2">{{ isNaN(dato.error) ? 'N/A' : Number(dato.error).toFixed(3) }}</td>
+  </tr>
+
+      </tbody>
+    </table>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from "vue";
-import Plotly from "plotly.js-dist";
 import axios from "axios";
+import Plotly from "plotly.js-dist";
+import { onMounted, ref } from "vue";
+
+const datos = ref([]);
 
 const actualizarGrafico = async () => {
   try {
     const response = await axios.get("http://localhost:5000/datos_grafico");
     const data = response.data;
+
+    console.log("Datos recibidos:", data);  // Verifica qué llega del backend
+
+    datos.value = data.data[0].x.map((_, i) => ({
+      indice: data.data[0].x[i],
+      x_value: data.data[1].y[i],
+      valor: data.data[0].y[i],
+      error: data.data[2].y[i],
+    })).slice(-10); // Tomamos solo los últimos 10 elementos
 
     const trace1 = {
       x: data.data[0].x,
