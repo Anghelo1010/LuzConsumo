@@ -1,10 +1,12 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 import numpy as np
 import math
 import psycopg2
 from datetime import datetime
 
 app = Flask(__name__)
+CORS(app)  # Necesario para que Vue pueda acceder al backend
 
 DB_CONFIG = {
     "dbname": "series_matematicas",
@@ -136,10 +138,10 @@ def insertar():
     elif tipo_serie == "fibonacci_coseno":
         x_vals = np.linspace(0, 2 * np.pi, n)
     
-    agregar_datos_iniciales(tipo_serie, x_vals, num_terminos)
-    return jsonify({"status": "success"})
+   agregar_datos_iniciales(tipo_serie, x_vals, num_terminos)
+    return jsonify({"status": "success", "message": f"Se agregaron {n} datos para {tipo_serie}"})
 
-@app.route('/datos_grafico')
+@app.route("/datos_grafico", methods=["GET"])
 def datos_grafico():
     conn = conectar_bd()
     if conn is None:
