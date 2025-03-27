@@ -4,24 +4,30 @@
       <!-- Enlaces de navegación -->
       <router-link to="/home" class="nav-link">Inicio</router-link>
       <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
-      <router-link to="/SeriesForm" class="nav-link">SeriesForm</router-link>
-      <router-link to="/SobreNosotros" class="nav-link">Sobre Nosotros</router-link>
+      <router-link to="/seriesform" class="nav-link">SeriesForm</router-link>
+      <router-link to="/fourier" class="nav-link">Fourier</router-link>
     </div>
   </nav>
 </template>
 
 <script setup>
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { onMounted, ref } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 
 const auth = getAuth();
-const user = ref(null);
+const user = ref(auth.currentUser);
 
 // Verificar el estado de autenticación
+let unsubscribe;
 onMounted(() => {
-  onAuthStateChanged(auth, (currentUser) => {
+  unsubscribe = onAuthStateChanged(auth, (currentUser) => {
     user.value = currentUser;
   });
+});
+
+// Detener el listener cuando el componente se destruye
+onUnmounted(() => {
+  if (unsubscribe) unsubscribe();
 });
 </script>
 
@@ -48,11 +54,11 @@ onMounted(() => {
 }
 
 .nav-link:hover {
-  background-color: #34495e; /* Fondo gris oscuro al para el cursor */
+  background-color: #34495e; /* Fondo gris oscuro al pasar el cursor */
 }
 
 .nav-link.router-link-exact-active {
-  background-color: #42b883; /* Fondo verde cuando el enlace es activo */
+  background-color: #42b883; /* Fondo verde cuando el enlace está activo */
   color: white;
 }
 </style>
