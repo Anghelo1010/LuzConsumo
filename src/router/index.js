@@ -10,17 +10,17 @@ const routes = [
   {
     path: "/home",
     component: HomeView,
-    meta: { requiresAuth: true, requiresNavbar: true },
+    meta: { requiresAuth: false, requiresNavbar: true },
   },
   {
     path: "/dashboard", // Nueva ruta
     component: DashboardView,
-    meta: { requiresAuth: true, requiresNavbar: true }, // Requiere autenticación y navbar
+    meta: { requiresAuth: false, requiresNavbar: true }, // Requiere autenticación y navbar
   },
   {
     path: "/seriesform", // Nueva ruta
     component: SeriesFormView,
-    meta: { requiresAuth: true, requiresNavbar: true }, // Requiere autenticación y navbar
+    meta: { requiresAuth: false, requiresNavbar: true }, // Requiere autenticación y navbar
   },
 ];
 

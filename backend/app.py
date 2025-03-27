@@ -1,12 +1,10 @@
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 import numpy as np
 import math
 import psycopg2
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)  # Necesario para que Vue pueda acceder al backend
 
 DB_CONFIG = {
     "dbname": "series_matematicas",
@@ -14,7 +12,7 @@ DB_CONFIG = {
     "password": "admin",
     "host": "localhost",
     "port": "5432",
-    "options": "-c client_encoding=UTF8"  # Forzar codificación UTF-8
+    "options": "-c client_encoding=UTF8"
 }
 
 def conectar_bd():
@@ -124,24 +122,48 @@ def agregar_datos_iniciales(tipo_serie, x_vals, num_terminos):
 
 @app.route('/insertar', methods=['POST'])
 def insertar():
-    data = request.json
-    n = int(data['n'])
-    num_terminos = int(data['num_terminos'])
-    tipo_serie = data['tipo_serie']
-    
-    if tipo_serie == "coseno":
-        x_vals = np.linspace(0, 2 * np.pi, n)
-    elif tipo_serie == "exp":
-        x_vals = np.linspace(-2, 2, n)
-    elif tipo_serie == "onda_cuadrada":
-        x_vals = np.linspace(-np.pi, np.pi, n)
-    elif tipo_serie == "fibonacci_coseno":
-        x_vals = np.linspace(0, 2 * np.pi, n)
-    
-   agregar_datos_iniciales(tipo_serie, x_vals, num_terminos)
-    return jsonify({"status": "success", "message": f"Se agregaron {n} datos para {tipo_serie}"})
+    try:
+        # Obtener los datos del cuerpo de la solicitud
+        data = request.json
+        if not data:
+            return jsonify({"status": "error", "message": "No se proporcionaron datos en el cuerpo de la solicitud"}), 400
 
-@app.route("/datos_grafico", methods=["GET"])
+        # Validar y extraer los parámetros
+        if 'n' not in data or 'num_terminos' not in data or 'tipo_serie' not in data:
+            return jsonify({"status": "error", "message": "Faltan parámetros: 'n', 'num_terminos' o 'tipo_serie'"}), 400
+
+        n = int(data['n'])
+        num_terminos = int(data['num_terminos'])
+        tipo_serie = data['tipo_serie']
+
+        # Validar que n y num_terminos sean positivos
+        if n <= 0 or num_terminos <= 0:
+            return jsonify({"status": "error", "message": "Los valores de 'n' y 'num_terminos' deben ser mayores que 0"}), 400
+
+        # Definir los valores de x según el tipo de serie
+        if tipo_serie == "coseno":
+            x_vals = np.linspace(0, 2 * np.pi, n)
+        elif tipo_serie == "exp":
+            x_vals = np.linspace(-2, 2, n)
+        elif tipo_serie == "onda_cuadrada":
+            x_vals = np.linspace(-np.pi, np.pi, n)
+        elif tipo_serie == "fibonacci_coseno":
+            x_vals = np.linspace(0, 2 * np.pi, n)
+        else:
+            return jsonify({"status": "error", "message": f"Tipo de serie no válido: {tipo_serie}"}), 400
+
+        # Llamar a la función para agregar los datos
+        agregar_datos_iniciales(tipo_serie, x_vals, num_terminos)
+
+        # Devolver respuesta de éxito
+        return jsonify({"status": "success", "message": f"Se agregaron {n} datos para {tipo_serie}"})
+
+    except ValueError as ve:
+        return jsonify({"status": "error", "message": f"Error en los valores proporcionados: {str(ve)}"}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Error interno del servidor: {str(e)}"}), 500
+
+@app.route('/datos_grafico')
 def datos_grafico():
     conn = conectar_bd()
     if conn is None:
