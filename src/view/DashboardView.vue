@@ -51,13 +51,12 @@ export default {
     return {
       series: [],
       chart: null,
-      selectedSerie: '', // Serie seleccionada por el usuario
-      seriesDisponibles: ['coseno', 'exp', 'onda_cuadrada', 'fibonacci_coseno'], // Opciones de series
+      selectedSerie: '',
+      seriesDisponibles: ['coseno', 'exp', 'onda_cuadrada', 'fibonacci_coseno'],
     };
   },
   methods: {
     async actualizarDatos() {
-      // No hacer nada si no se ha seleccionado una serie
       if (!this.selectedSerie) {
         this.series = [];
         if (this.chart) {
@@ -68,19 +67,18 @@ export default {
       }
 
       try {
-        // Pasar la serie seleccionada como parámetro en la solicitud
         const datosGrafico = await obtenerDatosGrafico(this.selectedSerie);
         
         console.log('Datos recibidos en actualizarDatos:', datosGrafico);
 
         if (
           !datosGrafico ||
-          !datosGrafico.indices ||
-          !Array.isArray(datosGrafico.indices) ||
-          !datosGrafico.x_vals ||
-          !datosGrafico.valores ||
-          !datosGrafico.errores ||
-          !datosGrafico.tipos
+          !datosGrafico.serie_indices ||
+          !Array.isArray(datosGrafico.serie_indices) ||
+          !datosGrafico.serie_puntos_x ||
+          !datosGrafico.serie_valores ||
+          !datosGrafico.serie_diferencias ||
+          !datosGrafico.serie_tipos
         ) {
           console.warn('Datos incompletos recibidos del servidor:', datosGrafico);
           this.series = [];
@@ -91,7 +89,7 @@ export default {
           return;
         }
 
-        if (datosGrafico.indices.length === 0) {
+        if (datosGrafico.serie_indices.length === 0) {
           console.warn('No hay datos para mostrar (arreglos vacíos)');
           this.series = [];
           if (this.chart) {
@@ -101,13 +99,13 @@ export default {
           return;
         }
 
-        this.series = datosGrafico.indices.map((indice, i) => {
+        this.series = datosGrafico.serie_indices.map((indice, i) => {
           return {
             indice,
-            x_value: datosGrafico.x_vals[i],
-            valor: datosGrafico.valores[i],
-            error: datosGrafico.errores[i],
-            tipo_serie: datosGrafico.tipos[i],
+            x_value: datosGrafico.serie_puntos_x[i],
+            valor: datosGrafico.serie_valores[i],
+            error: datosGrafico.serie_diferencias[i],
+            tipo_serie: datosGrafico.serie_tipos[i],
           };
         });
 
@@ -143,18 +141,18 @@ export default {
       this.chart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: datosGrafico.x_vals.map(val => val.toFixed(2)),
+          labels: datosGrafico.serie_puntos_x.map(val => val.toFixed(2)),
           datasets: [
             {
               label: 'Valor Aproximado',
-              data: datosGrafico.valores,
+              data: datosGrafico.serie_valores,
               borderColor: 'blue',
               fill: false,
               tension: 0.1,
             },
             {
               label: 'Error',
-              data: datosGrafico.errores,
+              data: datosGrafico.serie_diferencias,
               borderColor: 'red',
               borderDash: [5, 5],
               fill: false,
@@ -190,7 +188,6 @@ export default {
   },
   created() {
     console.log('Componente DashboardView creado, iniciando actualización de datos');
-    // No llamamos a actualizarDatos aquí porque queremos que el usuario seleccione una serie primero
     setInterval(() => {
       if (this.selectedSerie) {
         console.log('Actualizando datos en tiempo real...');

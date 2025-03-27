@@ -24,7 +24,6 @@ const API_URL = 'http://localhost:5000';
 
 export async function obtenerDatosGrafico(serie) {
   try {
-    // Incluir el parámetro 'serie' en la solicitud
     const response = await axios.get(`${API_URL}/datos_grafico`, {
       params: { serie },
       timeout: 5000,
@@ -36,6 +35,6 @@ export async function obtenerDatosGrafico(serie) {
     if (error.response) {
       console.error('Respuesta del servidor:', error.response.data);
     }
-    return { data: [], layout: {}, indices: [], x_vals: [], valores: [], errores: [], tipos: [] };
+    return { grafico_datos: [], grafico_config: {}, serie_indices: [], serie_puntos_x: [], serie_valores: [], serie_diferencias: [], serie_tipos: [] };
   }
 }
