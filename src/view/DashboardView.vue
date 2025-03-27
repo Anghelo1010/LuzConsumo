@@ -1,33 +1,24 @@
 <template>
   <div>
-    <h1>📊 Series Matemáticas</h1>
-
-    <label for="tipoSerie">Selecciona una serie:</label>
-    <select v-model="tipoSeleccionado" @change="cargarSeries">
-      <option value="coseno">Coseno</option>
-      <option value="exp">e^x</option>
-      <option value="onda_cuadrada">Onda Cuadrada</option>
-    </select>
+    <h1>📊 Dashboard: Series Matemáticas</h1>
 
     <table>
       <thead>
         <tr>
-          <th>ID</th>
           <th>Índice</th>
           <th>X</th>
-          <th>Valor</th>
+          <th>Valor Aproximado</th>
           <th>Error</th>
-          <th>Tipo</th>
+          <th>Tipo de Serie</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="serie in series" :key="serie[0]">
-          <td>{{ serie[0] }}</td>
-          <td>{{ serie[1] }}</td>
-          <td>{{ serie[2] }}</td>
-          <td>{{ serie[3] }}</td>
-          <td>{{ serie[4] }}</td>
-          <td>{{ serie[5] }}</td>
+        <tr v-for="(row, index) in series" :key="index">
+          <td>{{ row.indice }}</td>
+          <td>{{ row.x_value.toFixed(2) }}</td>
+          <td>{{ row.valor.toFixed(4) }}</td>
+          <td>{{ row.error.toFixed(4) }}</td>
+          <td>{{ row.tipo_serie }}</td>
         </tr>
       </tbody>
     </table>
@@ -37,40 +28,49 @@
 </template>
 
 <script>
-import Chart from "chart.js/auto";
-import obtenerSeries from "../services/api.js";
+import Chart from 'chart.js/auto';
+import { obtenerDatosGrafico } from '../services/api.js';
 
 export default {
   data() {
     return {
       series: [],
-      tipoSeleccionado: "coseno",
       chart: null,
     };
   },
   methods: {
-    async cargarSeries() {
-      this.series = await obtenerSeries(this.tipoSeleccionado);
-      this.actualizarGrafico();
+    async actualizarDatos() {
+      const datosGrafico = await obtenerDatosGrafico();
+      this.series = datosGrafico.indices.map((indice, i) => ({
+        indice,
+        x_value: datosGrafico.x_vals[i],
+        valor: datosGrafico.valores[i],
+        error: datosGrafico.errores[i],
+        tipo_serie: datosGrafico.tipos[i],
+      }));
+      this.actualizarGrafico(datosGrafico);
     },
-    actualizarGrafico() {
+    actualizarGrafico(datosGrafico) {
       if (this.chart) {
-        this.chart.destroy(); // Eliminar gráfico anterior
+        this.chart.destroy();
       }
-      
-      const ctx = this.$refs.chartCanvas.getContext("2d");
-      const xValores = this.series.map(serie => serie[2]);
-      const yValores = this.series.map(serie => serie[3]);
-
+      const ctx = this.$refs.chartCanvas.getContext('2d');
       this.chart = new Chart(ctx, {
-        type: "line",
+        type: 'line',
         data: {
-          labels: xValores,
+          labels: datosGrafico.x_vals,
           datasets: [
             {
-              label: `Serie ${this.tipoSeleccionado}`,
-              data: yValores,
-              borderColor: "blue",
+              label: 'Valor Aproximado',
+              data: datosGrafico.valores,
+              borderColor: 'blue',
+              fill: false,
+            },
+            {
+              label: 'Error',
+              data: datosGrafico.errores,
+              borderColor: 'red',
+              borderDash: [5, 5],
               fill: false,
             },
           ],
@@ -78,28 +78,44 @@ export default {
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: 'x' } },
+            y: { title: { display: true, text: 'Valor / Error' } },
+          },
         },
       });
+    },
+  },
+  created() {
+    this.actualizarDatos();
+    setInterval(this.actualizarDatos, 2000); // Actualización en tiempo real
+  },
+  beforeDestroy() {
+    if (this.chart) {
+      this.chart.destroy();
     }
   },
-  async created() {
-    await this.cargarSeries();
-  }
 };
 </script>
 
 <style scoped>
 table {
-  width: 100%;
+  width: 80%;
   border-collapse: collapse;
+  margin: 20px auto;
 }
-th, td {
+th,
+td {
   padding: 8px;
   border: 1px solid black;
+  text-align: center;
+}
+th {
+  background-color: #f2f2f2;
 }
 canvas {
-  max-width: 600px;
-  max-height: 400px;
-  margin-top: 20px;
+  max-width: 80%;
+  max-height: 500px;
+  margin: 20px auto;
 }
 </style>
