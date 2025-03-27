@@ -39,9 +39,10 @@ const datos = ref([]);
 
 const actualizarGrafico = async () => {
   try {
-    const response = await axios.get("http://localhost:5000/datos_grafico"); // Asegúrate de que el backend se ejecuta en el puerto correcto
-    const data = response.data; // No necesitas hacer JSON.parse()
-    
+    const response = await axios.get("http://localhost:5000/datos_grafico");
+    const data = response.data;
+
+    // Mapear los datos para mostrarlos correctamente
     datos.value = data.data[0].x.map((_, i) => ({
       indice: data.data[0].x[i],
       x_value: data.data[1].y[i],
@@ -98,6 +99,6 @@ const actualizarGrafico = async () => {
 
 onMounted(() => {
   actualizarGrafico();
-  setInterval(actualizarGrafico, 3000);
+  setInterval(actualizarGrafico, 3000); // Actualiza cada 3 segundos
 });
 </script>
