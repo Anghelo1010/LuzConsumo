@@ -3,8 +3,6 @@ from flask_cors import CORS
 import psycopg2
 import random
 import math
-import numpy as np
-from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -15,53 +13,7 @@ DB_CONFIG = {
     "password": "admin",
     "host": "localhost",
     "port": "5432",
-    "options": "-c client_encoding=UTF8",
 }
-
-
-def inicializar_bd():
-    conn = conectar_bd()
-    if conn is None:
-        return
-    try:
-        cursor = conn.cursor()
-        tablas = {
-            "series_coseno": "coseno",
-            "series_maclaurin": "exp",
-            "series_fourier": "onda_cuadrada",
-            "series_fibonacci_coseno": "fibonacci_coseno",
-        }
-        for tabla, tipo_serie in tablas.items():
-            cursor.execute(
-                f"""
-                CREATE TABLE IF NOT EXISTS {tabla} (
-                    id SERIAL PRIMARY KEY, indice INT, x_value NUMERIC, valor NUMERIC, error NUMERIC, tipo_serie TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """
-            )
-            cursor.execute(f"SELECT COUNT(*) FROM {tabla}")
-            if cursor.fetchone()[0] == 0:
-                if tipo_serie == "coseno":
-                    agregar_datos_iniciales(
-                        tipo_serie, np.linspace(0, 2 * np.pi, 10), 5
-                    )
-                elif tipo_serie == "exp":
-                    agregar_datos_iniciales(tipo_serie, np.linspace(-2, 2, 10), 5)
-                elif tipo_serie == "onda_cuadrada":
-                    agregar_datos_iniciales(
-                        tipo_serie, np.linspace(-np.pi, np.pi, 10), 5
-                    )
-                elif tipo_serie == "fibonacci_coseno":
-                    agregar_datos_iniciales(
-                        tipo_serie, np.linspace(0, 2 * np.pi, 10), 5
-                    )
-        conn.commit()
-        cursor.close()
-        print("✅ Tablas verificadas y datos iniciales creados correctamente.")
-    except Exception as e:
-        print(f"❌ Error al inicializar la base de datos: {e}")
-    finally:
-        conn.close()
 
 
 def conectar_bd():
