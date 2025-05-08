@@ -11,6 +11,7 @@ PASSWORD = "1968200120032007"
 MAX30102_ADDR = 0x57
 i2c = I2C(0, scl=Pin(22), sda=Pin(21))
 
+
 def conectar_wifi():
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
@@ -28,6 +29,7 @@ def conectar_wifi():
         print("❌ Error: No se pudo conectar al WiFi.")
         return False
 
+
 def read_reg(reg_addr, length):
     try:
         data = i2c.readfrom_mem(MAX30102_ADDR, reg_addr, length)
@@ -35,6 +37,7 @@ def read_reg(reg_addr, length):
     except Exception as e:
         print("Error al leer el sensor:", e)
         return []
+
 
 def leer_sensor():
     try:
@@ -49,19 +52,23 @@ def leer_sensor():
         print("Error al leer el sensor:", e)
         return 0, 0
 
+
 def write_reg(reg, value):
     try:
         i2c.writeto(MAX30102_ADDR, bytearray([reg, value]))
     except Exception as e:
         print("Error al escribir en el registro:", e)
 
+
 def apagar_sensor():
     write_reg(0x09, 0x80)
     print("Sensor apagado correctamente.")
 
+
 def encender_sensor():
     write_reg(0x09, 0x03)
     print("Sensor encendido correctamente.")
+
 
 def reiniciar_sensor():
     apagar_sensor()
@@ -69,9 +76,10 @@ def reiniciar_sensor():
     encender_sensor()
     print("Sensor reiniciado correctamente.")
 
+
 def iniciar_servidor():
     try:
-        addr = socket.getaddrinfo('0.0.0.0', 8080)[0][-1]
+        addr = socket.getaddrinfo("0.0.0.0", 8080)[0][-1]
         s = socket.socket()
         s.bind(addr)
         s.listen(1)
@@ -84,16 +92,16 @@ def iniciar_servidor():
 
             request_str = str(request)
 
-            if '/datos' in request_str:
+            if "/datos" in request_str:
                 red, ir = leer_sensor()
-                response = json.dumps({'red': red, 'ir': ir})
-                cl.send('HTTP/1.1 200 OK\r\n')
-                cl.send('Access-Control-Allow-Origin: *\r\n')
-                cl.send('Content-Type: application/json\r\n\r\n')
+                response = json.dumps({"red": red, "ir": ir})
+                cl.send("HTTP/1.1 200 OK\r\n")
+                cl.send("Access-Control-Allow-Origin: *\r\n")
+                cl.send("Content-Type: application/json\r\n\r\n")
                 cl.send(response)
             else:
-                cl.send('HTTP/1.1 200 OK\r\n')
-                cl.send('Content-Type: text/html\r\n\r\n')
+                cl.send("HTTP/1.1 200 OK\r\n")
+                cl.send("Content-Type: text/html\r\n\r\n")
                 html = f"""
                 <html>
                 <head>
@@ -122,13 +130,13 @@ def iniciar_servidor():
                 """
                 cl.send(html)
 
-            if '/stop' in request_str:
+            if "/stop" in request_str:
                 apagar_sensor()
                 print("Sensor apagado desde la página web.")
-            if '/start' in request_str:
+            if "/start" in request_str:
                 encender_sensor()
                 print("Sensor encendido desde la página web.")
-            if '/restart' in request_str:
+            if "/restart" in request_str:
                 reiniciar_sensor()
                 print("Sensor reiniciado desde la página web.")
             cl.close()
@@ -137,5 +145,30 @@ def iniciar_servidor():
         print("Error en el servidor:", e)
         machine.reset()
 
+
 if conectar_wifi():
     iniciar_servidor()
+
+    from machine import Pin, I2C
+import time
+
+# Configuración del I2C
+i2c = I2C(1, scl=Pin(22), sda=Pin(21), freq=400000)
+
+# Dirección del sensor MAX30102
+ADDRESS = 0x57
+
+
+def encender_led():
+    try:
+        # Configuración de SpO2
+        i2c.writeto_mem(ADDRESS, 0x09, bytes([0x03]))  # Modo SpO2
+        i2c.writeto_mem(ADDRESS, 0x0A, bytes([0x1F]))  # Potencia LED rojo
+        i2c.writeto_mem(ADDRESS, 0x0C, bytes([0x1F]))  # Potencia LED infrarrojo
+
+        print("LEDs encendidos (Rojo e Infrarrojo)")
+    except Exception as e:
+        print("Error al encender el LED:", str(e))
+
+
+encender_led()
