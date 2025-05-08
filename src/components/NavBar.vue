@@ -5,7 +5,7 @@
       <router-link to="/home" class="nav-link">Inicio</router-link>
       <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
       <router-link to="/seriesform" class="nav-link">SeriesForm</router-link>
-      <router-link to="/fourier" class="nav-link">Fourier</router-link>
+      <router-link to="/fourier" class="nav-link">Lectura de salud</router-link>
     </div>
   </nav>
 </template>

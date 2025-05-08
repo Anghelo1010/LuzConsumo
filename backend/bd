@@ -1,0 +1,15 @@
+CREATE TABLE pacientes (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100),
+    edad INT,
+    peso FLOAT,
+    altura FLOAT
+);
+
+CREATE TABLE lecturas_sensor (
+    id SERIAL PRIMARY KEY,
+    paciente_id INT REFERENCES pacientes(id),
+    red FLOAT,
+    ir FLOAT,
+    fecha TIMESTAMP
+);

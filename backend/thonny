@@ -1,0 +1,141 @@
+# thonny_sensor.py
+import network
+import socket
+import time
+import machine
+from machine import I2C, Pin
+import json
+
+SSID = "Zamorano Link Rompemuros"
+PASSWORD = "1968200120032007"
+MAX30102_ADDR = 0x57
+i2c = I2C(0, scl=Pin(22), sda=Pin(21))
+
+def conectar_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print("Conectando a WiFi...")
+        wlan.connect(SSID, PASSWORD)
+        timeout = 10
+        while not wlan.isconnected() and timeout > 0:
+            time.sleep(1)
+            timeout -= 1
+    if wlan.isconnected():
+        print("✅ Conectado. IP:", wlan.ifconfig()[0])
+        return True
+    else:
+        print("❌ Error: No se pudo conectar al WiFi.")
+        return False
+
+def read_reg(reg_addr, length):
+    try:
+        data = i2c.readfrom_mem(MAX30102_ADDR, reg_addr, length)
+        return data
+    except Exception as e:
+        print("Error al leer el sensor:", e)
+        return []
+
+def leer_sensor():
+    try:
+        data = read_reg(0x07, 6)
+        print("Datos crudos del sensor:", data)
+        if len(data) != 6:
+            raise ValueError("Datos de lectura incompletos o incorrectos")
+        red = (data[0] << 16) | (data[1] << 8) | data[2]
+        ir = (data[3] << 16) | (data[4] << 8) | data[5]
+        return red, ir
+    except Exception as e:
+        print("Error al leer el sensor:", e)
+        return 0, 0
+
+def write_reg(reg, value):
+    try:
+        i2c.writeto(MAX30102_ADDR, bytearray([reg, value]))
+    except Exception as e:
+        print("Error al escribir en el registro:", e)
+
+def apagar_sensor():
+    write_reg(0x09, 0x80)
+    print("Sensor apagado correctamente.")
+
+def encender_sensor():
+    write_reg(0x09, 0x03)
+    print("Sensor encendido correctamente.")
+
+def reiniciar_sensor():
+    apagar_sensor()
+    time.sleep(1)
+    encender_sensor()
+    print("Sensor reiniciado correctamente.")
+
+def iniciar_servidor():
+    try:
+        addr = socket.getaddrinfo('0.0.0.0', 8080)[0][-1]
+        s = socket.socket()
+        s.bind(addr)
+        s.listen(1)
+        print(f"🌐 Servidor web escuchando en puerto 8080...")
+
+        while True:
+            cl, addr = s.accept()
+            request = cl.recv(1024)
+            print("Request recibido:", request)
+
+            request_str = str(request)
+
+            if '/datos' in request_str:
+                red, ir = leer_sensor()
+                response = json.dumps({'red': red, 'ir': ir})
+                cl.send('HTTP/1.1 200 OK\r\n')
+                cl.send('Access-Control-Allow-Origin: *\r\n')
+                cl.send('Content-Type: application/json\r\n\r\n')
+                cl.send(response)
+            else:
+                cl.send('HTTP/1.1 200 OK\r\n')
+                cl.send('Content-Type: text/html\r\n\r\n')
+                html = f"""
+                <html>
+                <head>
+                    <title>Datos Sensor MAX30102</title>
+                    <script>
+                        function actualizarDatos() {{
+                            fetch('http://192.168.1.108:8080/datos')
+                            .then(response => response.json())
+                            .then(data => {{
+                                document.getElementById('red').textContent = "RED: " + data.red;
+                                document.getElementById('ir').textContent = "IR: " + data.ir;
+                            }});
+                        }}
+                        setInterval(actualizarDatos, 1000);
+                    </script>
+                </head>
+                <body>
+                    <h1>Datos del Sensor MAX30102</h1>
+                    <p id="red">RED: Cargando...</p>
+                    <p id="ir">IR: Cargando...</p>
+                    <form action="/stop" method="get"><button type="submit">Detener Sensor</button></form>
+                    <form action="/start" method="get"><button type="submit">Encender Sensor</button></form>
+                    <form action="/restart" method="get"><button type="submit">Reiniciar Sensor</button></form>
+                </body>
+                </html>
+                """
+                cl.send(html)
+
+            if '/stop' in request_str:
+                apagar_sensor()
+                print("Sensor apagado desde la página web.")
+            if '/start' in request_str:
+                encender_sensor()
+                print("Sensor encendido desde la página web.")
+            if '/restart' in request_str:
+                reiniciar_sensor()
+                print("Sensor reiniciado desde la página web.")
+            cl.close()
+
+    except Exception as e:
+        print("Error en el servidor:", e)
+        machine.reset()
+
+if conectar_wifi():
+    iniciar_servidor()

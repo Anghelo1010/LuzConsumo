@@ -38,8 +38,6 @@
           <li>Correlaciones (ACF/PACF)</li>
           <li>Análisis espectral</li>
         </ul>
-
-        <h2>Gráfica de Ejercicios</h2>
       </div>
 
       <!-- Cuadro para la imagen -->
