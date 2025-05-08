@@ -53,7 +53,7 @@ const bpm = ref(0)
 const esperandoDatos = ref(true)
 const errorConexion = ref(false)
 
-const ipESP = 'http://192.168.1.108:8080/datos'
+const ipESP = 'http://192.168.105.142:8080/datos'
 const apiBackend = 'http://localhost:5000/guardar_lectura'
 
 let intervalo = null
