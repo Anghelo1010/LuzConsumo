@@ -75,8 +75,7 @@ async function obtenerDatos() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
     const data = await res.json()
-
-    console.log("Datos obtenidos:", data) // Verifica los datos obtenidos
+    console.log("Datos obtenidos:", data)
 
     if (typeof data.red === 'number' && typeof data.ir === 'number') {
       red.value = data.red
@@ -84,21 +83,16 @@ async function obtenerDatos() {
       esperandoDatos.value = false
       errorConexion.value = false
 
-      // Verificación de los valores antes de actualizarlos
-      console.log("IR:", ir.value, "RED:", red.value)
+      // Actualizar arrays sin causar recursión infinita
+      const newIR = [...dataIR.value, ir.value]
+      const newRED = [...dataRED.value, red.value]
 
-      // Actualizar arrays para el gráfico fuera del ciclo reactivo para evitar la recursión infinita
-      dataIR.value.push(ir.value)
-      dataRED.value.push(red.value)
+      if (newIR.length > maxPuntos) newIR.shift()
+      if (newRED.length > maxPuntos) newRED.shift()
 
-      // Limitar el número de puntos en los arrays
-      if (dataIR.value.length > maxPuntos) dataIR.value.shift()
-      if (dataRED.value.length > maxPuntos) dataRED.value.shift()
+      dataIR.value = newIR
+      dataRED.value = newRED
 
-      // Mostrar los datos antes de la actualización
-      console.log("Datos para actualizar gráfico:", dataIR.value, dataRED.value)
-
-      // Asegurarnos de que la actualización del gráfico no cause un ciclo infinito
       nextTick(() => {
         actualizarGrafico()
       })
@@ -128,10 +122,7 @@ async function obtenerDatos() {
 }
 
 function inicializarGrafico() {
-  // Solo inicializar el gráfico cuando el canvas esté disponible
   if (chartCanvas.value && !chartInstance) {
-    console.log("Inicializando gráfico...")
-
     chartInstance = new Chart(chartCanvas.value, {
       type: 'line',
       data: {
@@ -161,34 +152,22 @@ function inicializarGrafico() {
         }
       }
     })
-
-    console.log("Gráfico inicializado.")
   }
 }
 
 function actualizarGrafico() {
-  // Verificar que la referencia a chartInstance no sea null antes de actualizar
   if (chartInstance) {
-    console.log("Actualizando gráfico...")
-
-    // Actualizar los datos del gráfico con los nuevos valores
     chartInstance.data.labels = Array.from({ length: dataIR.value.length }, (_, i) => i + 1)
     chartInstance.data.datasets[0].data = dataIR.value
     chartInstance.data.datasets[1].data = dataRED.value
     chartInstance.update()
-
-    console.log("Gráfico actualizado.")
   } else {
-    console.error("El gráfico no está inicializado. Intentando inicializar...")
     inicializarGrafico()
   }
 }
 
 onMounted(async () => {
-  // Esperar a que Vue haya renderizado completamente
   await nextTick()
-
-  // Asegurar que el gráfico se inicializa después de que el DOM esté completamente disponible
   setTimeout(() => {
     inicializarGrafico()
   }, 200)
