@@ -25,16 +25,17 @@
       <p><strong>Nombre:</strong> {{ paciente.nombre }}</p>
       <p><strong>IR:</strong> {{ ir }}</p>
       <p><strong>RED:</strong> {{ red }}</p>
-
-      <!-- Estado de la conexión -->
       <p v-if="esperandoDatos">⏳ Esperando datos del sensor...</p>
-      <p v-if="errorConexion">❌ No se pudo conectar al ESP32</p>
+
+      <!-- Gráfica en tiempo real -->
+      <canvas ref="chartCanvas"></canvas>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
+import Chart from 'chart.js/auto'
 
 const paciente = ref({
   nombre: '',
@@ -49,37 +50,60 @@ const red = ref(0)
 const esperandoDatos = ref(true)
 const errorConexion = ref(false)
 
-const ipESP = 'http://192.168.1.108:8080/datos' // IP del ESP32 directamente en el código
+const ipESP = 'http://192.168.1.108:8080/datos' // IP del ESP32
 const apiBackend = 'http://localhost:5000/guardar_lectura' // Backend Flask
 
 let intervalo = null
+const chartCanvas = ref(null)
+let chartInstance = null
+const maxPuntos = 20
+
+const dataIR = ref([])
+const dataRED = ref([])
 
 function enviarFormulario() {
   formEnviado.value = true
 
   if (!intervalo) {
-    intervalo = setInterval(obtenerDatos, 1000) // cada segundo
+    intervalo = setInterval(obtenerDatos, 1500) // cada 1.5 segundos
   }
 }
 
 async function obtenerDatos() {
   try {
-    const res = await fetch(ipESP);
+    const res = await fetch(ipESP)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
+    const data = await res.json()
 
-    const data = await res.json();
-    console.log("Datos obtenidos:", data);
+    console.log("Datos obtenidos:", data) // Verifica los datos obtenidos
 
     if (typeof data.red === 'number' && typeof data.ir === 'number') {
-      red.value = data.red;
-      ir.value = data.ir;
-      esperandoDatos.value = false;
-      errorConexion.value = false;
+      red.value = data.red
+      ir.value = data.ir
+      esperandoDatos.value = false
+      errorConexion.value = false
 
-      // Verificar qué datos se envían al backend
+      // Verificación de los valores antes de actualizarlos
+      console.log("IR:", ir.value, "RED:", red.value)
+
+      // Actualizar arrays para el gráfico fuera del ciclo reactivo para evitar la recursión infinita
+      dataIR.value.push(ir.value)
+      dataRED.value.push(red.value)
+
+      // Limitar el número de puntos en los arrays
+      if (dataIR.value.length > maxPuntos) dataIR.value.shift()
+      if (dataRED.value.length > maxPuntos) dataRED.value.shift()
+
+      // Mostrar los datos antes de la actualización
+      console.log("Datos para actualizar gráfico:", dataIR.value, dataRED.value)
+
+      // Asegurarnos de que la actualización del gráfico no cause un ciclo infinito
+      nextTick(() => {
+        actualizarGrafico()
+      })
+
+      // Enviar al backend
       const requestData = {
         nombre: paciente.value.nombre,
         edad: paciente.value.edad,
@@ -87,32 +111,88 @@ async function obtenerDatos() {
         altura: paciente.value.altura,
         red: red.value,
         ir: ir.value
-      };
-      console.log("Datos enviados al backend:", requestData);
+      }
 
-      const response = await fetch(apiBackend, {
+      await fetch(apiBackend, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error al guardar la lectura: HTTP ${response.status}`);
-      }
-
-      const responseData = await response.json();
-      console.log('Respuesta del servidor:', responseData);
-
+      })
     } else {
-      console.error("Datos inválidos recibidos:", data);
+      console.error('Datos inválidos recibidos:', data)
     }
-
   } catch (e) {
-    console.error("Error al obtener datos:", e);
-    errorConexion.value = true;
+    console.error('Error al obtener datos:', e)
+    errorConexion.value = true
   }
 }
 
+function inicializarGrafico() {
+  // Solo inicializar el gráfico cuando el canvas esté disponible
+  if (chartCanvas.value && !chartInstance) {
+    console.log("Inicializando gráfico...")
+
+    chartInstance = new Chart(chartCanvas.value, {
+      type: 'line',
+      data: {
+        labels: Array.from({ length: maxPuntos }, (_, i) => i + 1),
+        datasets: [
+          {
+            label: 'IR',
+            borderColor: 'blue',
+            data: [],
+            fill: false
+          },
+          {
+            label: 'RED',
+            borderColor: 'red',
+            data: [],
+            fill: false
+          }
+        ]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: false
+          }
+        }
+      }
+    })
+
+    console.log("Gráfico inicializado.")
+  }
+}
+
+function actualizarGrafico() {
+  // Verificar que la referencia a chartInstance no sea null antes de actualizar
+  if (chartInstance) {
+    console.log("Actualizando gráfico...")
+
+    // Actualizar los datos del gráfico con los nuevos valores
+    chartInstance.data.labels = Array.from({ length: dataIR.value.length }, (_, i) => i + 1)
+    chartInstance.data.datasets[0].data = dataIR.value
+    chartInstance.data.datasets[1].data = dataRED.value
+    chartInstance.update()
+
+    console.log("Gráfico actualizado.")
+  } else {
+    console.error("El gráfico no está inicializado. Intentando inicializar...")
+    inicializarGrafico()
+  }
+}
+
+onMounted(async () => {
+  // Esperar a que Vue haya renderizado completamente
+  await nextTick()
+
+  // Asegurar que el gráfico se inicializa después de que el DOM esté completamente disponible
+  setTimeout(() => {
+    inicializarGrafico()
+  }, 200)
+})
 </script>
 
 <style scoped>
@@ -156,5 +236,11 @@ button {
 
 button:hover {
   background: #1a252f;
+}
+
+canvas {
+  margin-top: 1rem;
+  width: 100%;
+  height: 300px;
 }
 </style>
