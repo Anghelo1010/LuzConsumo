@@ -58,7 +58,7 @@ function enviarFormulario() {
   formEnviado.value = true
 
   if (!intervalo) {
-    intervalo = setInterval(obtenerDatos, 1000) // cada segundo
+    intervalo = setInterval(obtenerDatos, 1500) // cada segundo
   }
 }
 
