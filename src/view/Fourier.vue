@@ -32,9 +32,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
-import Plotly from "plotly.js-dist";
 import axios from "axios";
+import Plotly from "plotly.js-dist";
+import { onMounted, ref } from "vue";
 
 const datos = ref([]);
 

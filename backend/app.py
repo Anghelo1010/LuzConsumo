@@ -16,30 +16,31 @@ DB_CONFIG = {
 }
 
 def conectar_bd():
+    """Función para conectar a la base de datos PostgreSQL."""
     return psycopg2.connect(**DB_CONFIG)
 
-# ---------------------- SERIES FOURIER ----------------------
-
 def generar_datos(cantidad):
+    """Genera datos de Fourier en la base de datos."""
     conn = conectar_bd()
     cursor = conn.cursor()
+    
+    cursor.execute("SELECT valor FROM series_fourier ORDER BY indice DESC LIMIT 1")
+    last_real = cursor.fetchone()
+    last_real = last_real[0] if last_real else 0  # Si no hay datos previos, empezar en 0
 
     for i in range(cantidad):
-        x_value = float(i)
-        valor = (
-            1.0 * math.sin(x_value) +
-            0.5 * math.sin(2 * x_value) +
-            0.25 * math.sin(3 * x_value) +
-            random.uniform(-0.1, 0.1)
-        )
-        error = abs(valor - math.sin(x_value))
+        x_value = float(last_real) + random.uniform(-0.2, 0.2)
+        valor = x_value + random.uniform(-0.5, 0.5) * (1 / (i + 1))  # Aproximación Fourier
+        error = abs(valor - x_value)
         tipo_serie = "Fourier"
+        fecha = "NOW()"
 
         cursor.execute("""
             INSERT INTO series_fourier (indice, x_value, valor, error, tipo_serie, fecha)
-            VALUES (%s, %s, %s, %s, %s, NOW())
-        """, (i, x_value, valor, error, tipo_serie))
-
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (i, x_value, valor, error, tipo_serie, fecha))
+        last_real = x_value  # Actualizar último valor real
+     
     conn.commit()
     cursor.close()
     conn.close()
@@ -51,108 +52,29 @@ def generar_datos_endpoint():
     generar_datos(cantidad)
     return jsonify({"message": f"Se agregaron {cantidad} datos"}), 200
 
-@app.route("/datos_grafico", methods=["GET"])
-def datos_grafico():
+def obtener_datos():
+    """Obtiene los últimos 10 datos de la serie de Fourier."""
     conn = conectar_bd()
     cursor = conn.cursor()
     cursor.execute("SELECT indice, x_value, valor, error FROM series_fourier ORDER BY indice DESC LIMIT 10")
     resultados = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
-    indices = [r[0] for r in resultados]
-    x_values = [r[1] for r in resultados]
-    valores = [r[2] for r in resultados]
-    errores = [r[3] for r in resultados]
-
-    return jsonify({
+    return {
         "data": [
-            {"x": indices, "y": valores},
-            {"x": indices, "y": x_values},
-            {"x": indices, "y": errores},
+            {"x": [r[0] for r in resultados], "y": [r[2] for r in resultados]},  # Valores de la función
+            {"x": [r[0] for r in resultados], "y": [r[1] for r in resultados]},  # X Values
+            {"x": [r[0] for r in resultados], "y": [r[3] for r in resultados]},  # Error
         ],
         "layout": {"title": "Serie de Fourier en tiempo real"}
-    })
+    }
 
-# ---------------------- PACIENTES + LECTURAS ----------------------
-
-@app.route("/pacientes", methods=["POST"])
-def registrar_paciente():
-    data = request.json
-    nombre = data.get("nombre")
-    edad = data.get("edad")
-    peso = data.get("peso")
-    altura = data.get("altura")
-
-    conn = conectar_bd()
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute(
-            "INSERT INTO pacientes (nombre, edad, peso, altura) VALUES (%s, %s, %s, %s) RETURNING id",
-            (nombre, edad, peso, altura)
-        )
-        paciente_id = cursor.fetchone()[0]
-        conn.commit()
-        return jsonify({"paciente_id": paciente_id}), 201
-    except Exception as e:
-        conn.rollback()
-        print("Error al registrar paciente:", e)
-        return jsonify({"error": "No se pudo registrar el paciente"}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-
-@app.route("/guardar_lectura", methods=["POST"])
-def guardar_lectura():
-    data = request.json
-    print("Datos recibidos:", data)  # Verificar los datos que llegan
-    nombre = data.get("nombre")
-    edad = data.get("edad")
-    peso = data.get("peso")
-    altura = data.get("altura")
-    red = data.get("red")
-    ir = data.get("ir")
-
-    conn = conectar_bd()
-    cursor = conn.cursor()
-
-    try:
-        # Buscar paciente
-        cursor.execute("SELECT id FROM pacientes WHERE nombre = %s AND edad = %s", (nombre, edad))
-        paciente = cursor.fetchone()
-
-        # Insertar si no existe
-        if paciente:
-            paciente_id = paciente[0]
-        else:
-            cursor.execute(
-                "INSERT INTO pacientes (nombre, edad, peso, altura) VALUES (%s, %s, %s, %s) RETURNING id",
-                (nombre, edad, peso, altura)
-            )
-            paciente_id = cursor.fetchone()[0]
-
-        # Guardar lectura
-        cursor.execute(
-            "INSERT INTO lecturas_sensor (paciente_id, red, ir, fecha) VALUES (%s, %s, %s, NOW())",
-            (paciente_id, red, ir)
-        )
-
-        conn.commit()
-        return jsonify({"message": "Lectura guardada correctamente"}), 201
-
-    except Exception as e:
-        conn.rollback()
-        print("Error al guardar lectura:", e)
-        return jsonify({"error": "Error al guardar la lectura"}), 500
-
-    finally:
-        cursor.close()
-        conn.close()
-
-
-# ---------------------- MAIN ----------------------
+@app.route("/datos_grafico", methods=["GET"])
+def datos_grafico():
+    """Retorna los datos en formato JSON para la visualización."""
+    return jsonify(obtener_datos())
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+     app.run(host='0.0.0.0', port=5000, debug=True)
